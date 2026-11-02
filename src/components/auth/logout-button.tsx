@@ -29,7 +29,7 @@ export function LogoutButton() {
     <div className="flex items-center gap-3">
       {error && <span className="text-xs text-[#a3332d]" role="alert">{error}</span>}
       <button
-        className="rounded-md border border-[#cbd4cb] px-4 py-2 text-sm font-semibold text-[#294337] transition hover:bg-[#edf1ea] disabled:opacity-60"
+        className="min-h-11 rounded-md border border-[#cbd4cb] px-4 py-2 text-sm font-semibold text-[#294337] transition hover:bg-[#edf1ea] disabled:opacity-60"
         type="button"
         disabled={pending}
         onClick={handleLogout}
