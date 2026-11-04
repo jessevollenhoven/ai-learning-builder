@@ -17,9 +17,21 @@ export const multipleChoiceContentSchema = z.object({
 
 export type MultipleChoiceContent = z.infer<typeof multipleChoiceContentSchema>;
 
-export const generateRequestSchema = z.object({
+export const initialGenerateRequestSchema = z.object({
   activityType: z.literal("multiple_choice"),
   teacherText: z.string().trim().min(1).max(5000),
 });
+
+export const refineRequestSchema = z.object({
+  mode: z.literal("refine"),
+  activityType: z.literal("multiple_choice"),
+  content: multipleChoiceContentSchema,
+  instruction: z.string().trim().min(1).max(5000),
+});
+
+export const generateRequestSchema = z.union([
+  initialGenerateRequestSchema,
+  refineRequestSchema,
+]);
 
 export type GenerateRequest = z.infer<typeof generateRequestSchema>;

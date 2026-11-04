@@ -11,19 +11,6 @@ export const activityTypes = [
 
 export type ActivityType = (typeof activityTypes)[number];
 
-export const sampleActivities: {
-  title: string;
-  type: ActivityType;
-  date: string;
-  dateLabel: string;
-}[] = [
-  { title: "The water cycle", type: "Multiple choice", date: "2026-10-28", dateLabel: "Oct 28, 2026" },
-  { title: "Fractions in everyday life", type: "Flashcards", date: "2026-10-24", dateLabel: "Oct 24, 2026" },
-  { title: "Early space exploration", type: "Ordering", date: "2026-10-19", dateLabel: "Oct 19, 2026" },
-  { title: "Parts of a plant cell", type: "Matching", date: "2026-10-12", dateLabel: "Oct 12, 2026" },
-  { title: "Ancient Greece: quick check", type: "True / false", date: "2026-10-08", dateLabel: "Oct 8, 2026" },
-];
-
 export const sampleQuiz: MultipleChoiceContent = {
   type: "multiple_choice",
   title: "The water cycle",
@@ -61,3 +48,7 @@ export const sampleQuiz: MultipleChoiceContent = {
     },
   ],
 };
+
+export function getRefinedSampleQuiz(): MultipleChoiceContent {
+  return { ...sampleQuiz, title: `${sampleQuiz.title} (refined)` };
+}

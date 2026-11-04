@@ -1,5 +1,5 @@
 // Reports readability and duplicate-choice problems in validated activity content.
-import type { MultipleChoiceContent } from "./schemas";
+import { multipleChoiceContentSchema, type MultipleChoiceContent } from "./schemas";
 
 const textLimits = {
   title: 70,
@@ -41,4 +41,18 @@ export function checkMultipleChoiceContent(content: MultipleChoiceContent): stri
   });
 
   return problems;
+}
+
+export function validateMultipleChoiceContent(input: unknown):
+  | { success: true; data: MultipleChoiceContent }
+  | { success: false; problems: string[] } {
+  const parsed = multipleChoiceContentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, problems: parsed.error.issues.map((issue) => issue.message) };
+  }
+
+  const problems = checkMultipleChoiceContent(parsed.data);
+  return problems.length > 0
+    ? { success: false, problems }
+    : { success: true, data: parsed.data };
 }

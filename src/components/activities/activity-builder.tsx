@@ -1,13 +1,55 @@
-// Lets teachers choose an activity type and enter notes for the prototype.
+// Submits activity requests and hands validated drafts to the preview.
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { activityTypes, type ActivityType } from "../../lib/sample-data";
+import { activityDraftStorageKey } from "../../lib/activity-utils";
+import { validateMultipleChoiceContent } from "../../lib/checks";
 
 export function ActivityBuilder() {
+  const router = useRouter();
   const [selectedType, setSelectedType] = useState<ActivityType>(activityTypes[0]);
   const [notes, setNotes] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function generateActivity() {
+    setPending(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activityType: "multiple_choice", teacherText: notes }),
+      });
+      const result: unknown = await response.json();
+
+      if (!response.ok) {
+        const message =
+          typeof result === "object" && result !== null && "error" in result && typeof result.error === "string"
+            ? result.error
+            : "We couldn't generate this activity. Please try again.";
+        setError(message);
+        return;
+      }
+
+      const validation = validateMultipleChoiceContent(result);
+      if (!validation.success) {
+        setError("The activity preview wasn't valid. Please try again.");
+        return;
+      }
+
+      sessionStorage.setItem(activityDraftStorageKey, JSON.stringify(validation.data));
+      router.push("/dashboard/preview");
+    } catch {
+      setError("We couldn't reach the activity service. Check your connection and try again.");
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8 sm:py-12">
@@ -20,6 +62,7 @@ export function ActivityBuilder() {
 
       <fieldset className="mt-8">
         <legend className="text-sm font-semibold">Activity type</legend>
+        <p className="mt-1 text-xs text-[#818a81]">Multiple choice is available now. Other formats are coming later.</p>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {activityTypes.map((type) => {
             const selected = type === selectedType;
@@ -29,9 +72,10 @@ export function ActivityBuilder() {
                 className={`min-h-14 rounded-md border px-3 py-3 text-left text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#183d31] ${
                   selected
                     ? "border-[#183d31] bg-[#e8eee8] text-[#183d31]"
-                    : "border-[#d8ded7] bg-white hover:border-[#8da596]"
+                    : "border-[#d8ded7] bg-white hover:border-[#8da596] disabled:cursor-not-allowed disabled:opacity-45"
                 }`}
                 key={type}
+                disabled={type !== activityTypes[0]}
                 onClick={() => setSelectedType(type)}
                 type="button"
               >
@@ -52,14 +96,17 @@ export function ActivityBuilder() {
           value={notes}
         />
       </label>
-      <p className="mt-2 text-xs text-[#818a81]">Your notes stay in this browser prototype and are not saved.</p>
+      <p className="mt-2 text-xs text-[#818a81]">Your notes are used to make the preview. Nothing is saved until you choose Save.</p>
 
-      <Link
-        className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-md bg-[#183d31] px-5 text-base font-semibold text-white transition hover:bg-[#245541] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#183d31] sm:w-auto sm:min-w-48"
-        href="/dashboard/preview"
+      {error && <p className="mt-4 text-sm text-[#a3332d]" role="alert">{error}</p>}
+      <button
+        className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-md bg-[#183d31] px-5 text-base font-semibold text-white transition hover:bg-[#245541] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#183d31] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-48"
+        disabled={pending || !notes.trim() || selectedType !== activityTypes[0]}
+        onClick={generateActivity}
+        type="button"
       >
-        Generate
-      </Link>
+        {pending ? "Generating..." : "Generate"}
+      </button>
     </div>
   );
 }
