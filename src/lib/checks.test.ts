@@ -1,8 +1,8 @@
 // Covers successful content and each quality-check failure.
 import { describe, expect, it } from "vitest";
-import { checkMultipleChoiceContent } from "./checks";
-import { multipleChoiceContentSchema, type MultipleChoiceContent } from "./schemas";
-import { sampleQuiz } from "./sample-data";
+import { checkMultipleChoiceContent, validateMultipleChoiceContent } from "./checks";
+import { generateRequestSchema, multipleChoiceContentSchema, type MultipleChoiceContent } from "./schemas";
+import { getRefinedSampleQuiz, sampleQuiz } from "./sample-data";
 
 function makeContent(questionCount = 5): MultipleChoiceContent {
   return {
@@ -30,6 +30,35 @@ describe("checkMultipleChoiceContent", () => {
     if (result.success) {
       expect(checkMultipleChoiceContent(result.data)).toEqual([]);
     }
+  });
+
+  it("creates a schema-valid fake refinement with a refined title", () => {
+    const refined = getRefinedSampleQuiz();
+    const result = multipleChoiceContentSchema.safeParse(refined);
+
+    expect(refined.title).toBe(`${sampleQuiz.title} (refined)`);
+    expect(result.success).toBe(true);
+    expect(checkMultipleChoiceContent(refined)).toEqual([]);
+  });
+
+  it("accepts both the existing generation request and the refinement request", () => {
+    expect(generateRequestSchema.safeParse({
+      activityType: "multiple_choice",
+      teacherText: "Create a quiz about the water cycle.",
+    }).success).toBe(true);
+    expect(generateRequestSchema.safeParse({
+      mode: "refine",
+      activityType: "multiple_choice",
+      content: makeContent(),
+      instruction: "Make question 3 harder.",
+    }).success).toBe(true);
+  });
+
+  it("rejects content with invalid shape before running quality checks", () => {
+    expect(validateMultipleChoiceContent({ type: "multiple_choice", questions: [] })).toEqual({
+      success: false,
+      problems: expect.any(Array),
+    });
   });
 
   it("reports too few questions", () => {

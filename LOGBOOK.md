@@ -25,3 +25,25 @@
 - Agent got wrong: nothing major. It asked me two clarifying questions before planning, and I answered them. My test code used the wrong field names (`type`/`text`), and the real ones in `schemas.ts` are `activityType` and `teacherText`, so I now read the schema file instead of guessing.
 - Not yet tested: the logged-in fake-mode response and RLS with two accounts (planned for Day 3, once saving exists).
 - Learned: why RLS protects data even if the app code has a bug, and why the server checks the schema and the content checks before showing anything to the teacher.
+
+## Day 3 (4 Nov)
+- Built:
+  - Generate button now calls `/api/generate`, with loading and friendly error states
+  - Preview page: answer the quiz, refine by chat, and Save
+  - Refine only replaces the current quiz if the result passes the schema and content checks. Otherwise the previous version is kept and an error is shown.
+  - Save is a server action that checks login, validates the content, and inserts only type, title and content. `owner_id` is never sent, so the database fills it in.
+  - Dashboard lists the teacher's real saved activities, newest first, with a "No activities yet" empty state, and each one reopens in the preview
+  - The four unbuilt activity types are visible but disabled
+  - Added tests for content validation and the save payload (12 tests total, all passing in CI)
+- Decisions:
+  - Still in fake mode, which returns the same sample quiz whatever the teacher types, and refine only adds "(refined)" to the title. This lets me build and test the whole flow with no AI cost.
+  - Unsupported types are shown as disabled rather than hidden, so the roadmap is visible and enabling each one later is a small change.
+- Agent got wrong:
+  - It reported the work as done without being able to run tests, lint or the build. When I ran them, lint and the build failed on 4 problems: a missing `Link` import, an unescaped apostrophe, setState called inside a useEffect, and a type error (`string | undefined` passed to a state setter for a `string`). I sent the exact errors back, it fixed them, and I re-ran all three myself. Lesson: always run `npm test`, `npm run lint` and `npm run build` myself before committing.
+- Tested:
+  - Generate, refine, save and reopen from the dashboard all work locally
+  - Row-level security with two accounts: [fill in what happened, e.g. "account B saw an empty dashboard and could not open account A's activity by its URL"]
+- Still to do:
+  - A real AI call for generation. I can't afford an API key, so I'm asking Alex about a class key or a free model.
+  - Share link, then the other four templates
+- Learned: why the server action leaves out `owner_id` (the database sets it from the logged-in user, so a teacher can't save a row under someone else's name), and why failed refinements keep the previous version.
