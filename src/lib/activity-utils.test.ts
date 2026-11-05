@@ -1,6 +1,6 @@
 // Protects the activity insert payload from including an owner identifier.
 import { describe, expect, it } from "vitest";
-import { buildActivityInsert } from "./activity-utils";
+import { buildActivityInsert, buildActivityShareUpdate } from "./activity-utils";
 import { sampleQuiz } from "./sample-data";
 
 describe("buildActivityInsert", () => {
@@ -13,5 +13,11 @@ describe("buildActivityInsert", () => {
       content: sampleQuiz,
     });
     expect(insert).not.toHaveProperty("owner_id");
+  });
+});
+
+describe("buildActivityShareUpdate", () => {
+  it("updates only the shared column", () => {
+    expect(buildActivityShareUpdate(true)).toEqual({ shared: true });
   });
 });
