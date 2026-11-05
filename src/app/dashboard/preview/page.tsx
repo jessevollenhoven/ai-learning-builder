@@ -16,7 +16,7 @@ export default async function ActivityPreviewPage({ searchParams }: ActivityPrev
   const supabase = await createClient();
   const { data: activity, error } = await supabase
     .from("activities")
-    .select("type, content")
+    .select("id, type, content, shared")
     .eq("id", id)
     .maybeSingle();
 
@@ -25,5 +25,12 @@ export default async function ActivityPreviewPage({ searchParams }: ActivityPrev
   const validation = validateMultipleChoiceContent(activity.content);
   if (!validation.success) notFound();
 
-  return <QuizPreview initialContent={validation.data} isSaved />;
+  return (
+    <QuizPreview
+      initialContent={validation.data}
+      isSaved
+      activityId={activity.id}
+      isShared={activity.shared}
+    />
+  );
 }
