@@ -1,17 +1,39 @@
 // Authenticates generation requests and serves validated sample content in fake mode.
 import { createClient } from "../../../lib/supabase/server";
 import { validateMultipleChoiceContent } from "../../../lib/checks";
+import { generateWithGemini, GeminiProviderError } from "../../../lib/gemini";
 import {
   generateRequestSchema,
-  multipleChoiceContentSchema,
-  type GenerateRequest,
-  type MultipleChoiceContent,
 } from "../../../lib/schemas";
 import { getRefinedSampleQuiz, sampleQuiz } from "../../../lib/sample-data";
 
-async function generateWithProvider(_request: GenerateRequest): Promise<MultipleChoiceContent | null> {
-  void _request;
-  return null;
+function validateGeneratedText(text: string) {
+  try {
+    return validateMultipleChoiceContent(JSON.parse(text));
+  } catch {
+    return { success: false as const, problems: ["The response was not valid JSON."] };
+  }
+}
+
+function providerErrorResponse(error: unknown) {
+  if (!(error instanceof GeminiProviderError)) {
+    return Response.json({ error: "Quiz generation is temporarily unavailable. Please try again." }, { status: 503 });
+  }
+
+  switch (error.kind) {
+    case "not_configured":
+      return Response.json({ error: "AI generation is not configured yet." }, { status: 503 });
+    case "rate_limit":
+      return Response.json({ error: "The quiz generator is busy. Please wait a moment and try again." }, { status: 429 });
+    case "timeout":
+      return Response.json({ error: "Quiz generation took too long. Please try again." }, { status: 504 });
+    case "blocked":
+      return Response.json({ error: "The quiz generator couldn't complete this request. Try different wording." }, { status: 502 });
+    case "empty":
+      return Response.json({ error: "The quiz generator returned no content. Please try again." }, { status: 502 });
+    case "unavailable":
+      return Response.json({ error: "Quiz generation is temporarily unavailable. Please try again." }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -63,23 +85,25 @@ export async function POST(request: Request) {
     return Response.json(sampleResult.data);
   }
 
-  const generatedContent = await generateWithProvider(requestResult.data);
-  if (!generatedContent) {
-    return Response.json({ error: "AI not set up yet." }, { status: 501 });
-  }
+  try {
+    const firstCandidate = validateGeneratedText(await generateWithGemini(requestResult.data));
+    if (firstCandidate.success) return Response.json(firstCandidate.data);
 
-  const result = multipleChoiceContentSchema.safeParse(generatedContent);
-  if (!result.success) {
-    return Response.json({ error: "Generated content failed validation." }, { status: 502 });
-  }
-
-  const checkedContent = validateMultipleChoiceContent(result.data);
-  if (!checkedContent.success) {
-    return Response.json(
-      { error: "Generated content failed quality checks.", problems: checkedContent.problems },
-      { status: 502 },
+    const repairedCandidate = validateGeneratedText(
+      await generateWithGemini(requestResult.data, firstCandidate.problems),
     );
-  }
+    if (!repairedCandidate.success) {
+      return Response.json(
+        {
+          error: "We couldn't create a valid quiz. Your current activity is unchanged. Please try again.",
+          problems: repairedCandidate.problems,
+        },
+        { status: 502 },
+      );
+    }
 
-  return Response.json(checkedContent.data);
+    return Response.json(repairedCandidate.data);
+  } catch (error) {
+    return providerErrorResponse(error);
+  }
 }
