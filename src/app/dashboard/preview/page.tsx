@@ -1,7 +1,7 @@
 // Loads an RLS-scoped saved activity or hands a draft to the preview client.
 import { notFound } from "next/navigation";
 import { QuizPreview } from "../../../components/activities/quiz-preview";
-import { validateMultipleChoiceContent } from "../../../lib/checks";
+import { validateActivityContent } from "../../../lib/activity-types";
 import { createClient } from "../../../lib/supabase/server";
 
 type ActivityPreviewPageProps = {
@@ -20,10 +20,10 @@ export default async function ActivityPreviewPage({ searchParams }: ActivityPrev
     .eq("id", id)
     .maybeSingle();
 
-  if (error || !activity || activity.type !== "multiple_choice") notFound();
+  if (error || !activity) notFound();
 
-  const validation = validateMultipleChoiceContent(activity.content);
-  if (!validation.success) notFound();
+  const validation = validateActivityContent(activity.content);
+  if (!validation.success || validation.data.type !== activity.type) notFound();
 
   return (
     <QuizPreview

@@ -1,15 +1,17 @@
-// Authenticates generation requests and serves validated sample content in fake mode.
+// Authenticates generation requests, then generates (or serves sample) validated content for any enabled type.
 import { createClient } from "../../../lib/supabase/server";
-import { validateMultipleChoiceContent } from "../../../lib/checks";
+import { getActivityType, validateActivityContent } from "../../../lib/activity-types";
 import { generateWithGemini, GeminiProviderError } from "../../../lib/gemini";
-import {
-  generateRequestSchema,
-} from "../../../lib/schemas";
-import { getRefinedSampleQuiz, sampleQuiz } from "../../../lib/sample-data";
+import { generateRequestSchema } from "../../../lib/schemas";
 
-function validateGeneratedText(text: string) {
+// Parses the AI's text and checks it is valid content of the type that was asked for.
+function validateGeneratedText(text: string, expectedType: string) {
   try {
-    return validateMultipleChoiceContent(JSON.parse(text));
+    const result = validateActivityContent(JSON.parse(text));
+    if (result.success && result.data.type !== expectedType) {
+      return { success: false as const, problems: [`The activity must be of type ${expectedType}.`] };
+    }
+    return result;
   } catch {
     return { success: false as const, problems: ["The response was not valid JSON."] };
   }
@@ -62,8 +64,15 @@ export async function POST(request: Request) {
     );
   }
 
+  // Only types that are built and enabled in the registry can be generated.
+  const activityType = requestResult.data.activityType;
+  const definition = getActivityType(activityType);
+  if (!definition?.enabled) {
+    return Response.json({ error: "This activity type isn't available yet." }, { status: 400 });
+  }
+
   if ("mode" in requestResult.data) {
-    const currentContent = validateMultipleChoiceContent(requestResult.data.content);
+    const currentContent = validateActivityContent(requestResult.data.content);
     if (!currentContent.success) {
       return Response.json(
         { error: "The current activity content is invalid.", problems: currentContent.problems },
@@ -73,8 +82,12 @@ export async function POST(request: Request) {
   }
 
   if (process.env.FAKE_MODE === "true") {
-    const candidate = "mode" in requestResult.data ? getRefinedSampleQuiz() : sampleQuiz;
-    const sampleResult = validateMultipleChoiceContent(candidate);
+    const sample = definition.sample;
+    if (!sample) {
+      return Response.json({ error: "No sample content for this type." }, { status: 500 });
+    }
+    const candidate = "mode" in requestResult.data ? { ...sample, title: `${sample.title} (refined)` } : sample;
+    const sampleResult = validateActivityContent(candidate);
     if (!sampleResult.success) {
       return Response.json(
         { error: "Sample content failed validation.", problems: sampleResult.problems },
@@ -86,11 +99,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const firstCandidate = validateGeneratedText(await generateWithGemini(requestResult.data));
+    const firstCandidate = validateGeneratedText(await generateWithGemini(requestResult.data), activityType);
     if (firstCandidate.success) return Response.json(firstCandidate.data);
 
     const repairedCandidate = validateGeneratedText(
       await generateWithGemini(requestResult.data, firstCandidate.problems),
+      activityType,
     );
     if (!repairedCandidate.success) {
       return Response.json(

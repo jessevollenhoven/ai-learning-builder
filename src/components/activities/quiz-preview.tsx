@@ -6,13 +6,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { saveActivity } from "../../app/dashboard/preview/actions";
 import { activityDraftStorageKey } from "../../lib/activity-utils";
-import { validateMultipleChoiceContent } from "../../lib/checks";
-import type { MultipleChoiceContent } from "../../lib/schemas";
+import { activityTypes, validateActivityContent } from "../../lib/activity-types";import type { ActivityContent } from "../../lib/schemas";
 import { ActivityShareControls } from "./activity-share-controls";
 import { QuizPlayer } from "./quiz-player";
 
 type QuizPreviewProps = {
-  initialContent?: MultipleChoiceContent;
+  initialContent?: ActivityContent;
   isSaved?: boolean;
   activityId?: string;
   isShared?: boolean;
@@ -46,7 +45,7 @@ function getServerDraftSnapshot() {
 function validateDraftSnapshot(snapshot: string | null) {
   if (!snapshot) return null;
   try {
-    return validateMultipleChoiceContent(JSON.parse(snapshot));
+    return validateActivityContent(JSON.parse(snapshot));
   } catch {
     return { success: false as const, problems: [] };
   }
@@ -56,7 +55,7 @@ export function QuizPreview({ initialContent, isSaved = false, activityId, isSha
   const router = useRouter();
   const draftSnapshot = useSyncExternalStore(subscribeToDraft, getDraftSnapshot, getServerDraftSnapshot);
   const draftValidation = validateDraftSnapshot(draftSnapshot);
-  const [contentOverride, setContentOverride] = useState<MultipleChoiceContent | null>(null);
+  const [contentOverride, setContentOverride] = useState<ActivityContent | null>(null);
   const [playerVersion, setPlayerVersion] = useState(0);
   const content = contentOverride ?? initialContent ?? (draftValidation?.success ? draftValidation.data : null);
   const [instruction, setInstruction] = useState("");
@@ -83,7 +82,7 @@ export function QuizPreview({ initialContent, isSaved = false, activityId, isSha
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "refine",
-          activityType: "multiple_choice",
+          activityType: content.type,
           content,
           instruction,
         }),
@@ -95,7 +94,7 @@ export function QuizPreview({ initialContent, isSaved = false, activityId, isSha
         return;
       }
 
-      const validation = validateMultipleChoiceContent(result);
+      const validation = validateActivityContent(result);
       if (!validation.success) {
         setRefineError("The updated activity did not pass its checks. Your current version is unchanged.");
         return;
@@ -154,7 +153,7 @@ export function QuizPreview({ initialContent, isSaved = false, activityId, isSha
         <div className="mt-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase text-[#527264]">Multiple choice preview</p>
+              <p className="text-xs font-bold uppercase text-[#527264]">{activityTypes[content.type].label} preview</p>
               <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">{content.title}</h1>
               <p className="mt-2 text-sm leading-6 text-[#657067]">{content.instructions}</p>
             </div>

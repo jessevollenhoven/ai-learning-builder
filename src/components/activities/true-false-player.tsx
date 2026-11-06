@@ -1,7 +1,7 @@
 // Renders large phone-friendly True and False answer buttons.
 import type { ActivityPlayerProps } from "./player-types";
 
-export function TrueFalsePlayer({ question, selectedAnswer, disabled, onSelectAnswer }: ActivityPlayerProps) {
+export function TrueFalsePlayer({ selectedAnswer, disabled, onSelectAnswer }: ActivityPlayerProps) {
   return (
     <div className="mt-6 grid grid-cols-2 gap-3">
       {[true, false].map((answer) => (

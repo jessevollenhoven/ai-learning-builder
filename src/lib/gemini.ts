@@ -116,18 +116,60 @@ const multipleChoiceResponseSchema = {
   required: ["type", "title", "instructions", "questions"],
 } as const;
 
-const systemInstruction =
-  "Write quiz content for a non-technical teacher. Return only quiz content in the required JSON shape. " +
-  "Write 5 to 15 multiple-choice questions, each with exactly 4 distinct options and exactly one correct answer identified by correctIndex. " +
-  "Keep the title, instructions, questions, options, and explanations short enough to read on a phone. Do not include markdown or commentary.";
+const trueFalseResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    type: { type: "string", enum: ["true_false"] },
+    title: { type: "string" },
+    instructions: { type: "string" },
+    statements: {
+      type: "array",
+      minItems: 5,
+      maxItems: 15,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          statement: { type: "string" },
+          answer: { type: "boolean" },
+          explanation: { type: "string" },
+        },
+        required: ["statement", "answer", "explanation"],
+      },
+    },
+  },
+  required: ["type", "title", "instructions", "statements"],
+} as const;
 
-function makeInput(request: GenerateRequest, repairProblems: string[]): string {
+type GeneratableType = "multiple_choice" | "true_false";
+
+const responseSchemas = {
+  multiple_choice: multipleChoiceResponseSchema,
+  true_false: trueFalseResponseSchema,
+} as const;
+
+const commonInstruction =
+  "Write quiz content for a non-technical teacher. Return only the content in the required JSON shape, with no markdown or commentary. " +
+  "Keep the title, instructions and all text short enough to read on a phone. ";
+
+const systemInstructions: Record<GeneratableType, string> = {
+  multiple_choice:
+    commonInstruction +
+    "Write 5 to 15 multiple-choice questions, each with exactly 4 distinct options and exactly one correct answer identified by correctIndex.",
+  true_false:
+    commonInstruction +
+    "Write 5 to 15 clear true/false statements, each with a boolean answer and a short explanation. Mix true and false answers and avoid tricky wording.",
+};
+
+function makeInput(request: GenerateRequest, repairProblems: string[], type: GeneratableType): string {
+  const label = type === "multiple_choice" ? "multiple-choice quiz" : "true/false quiz";
   const task = "mode" in request
-    ? `Refine this complete quiz according to the teacher's instruction. Return the entire updated quiz.\nCurrent quiz:\n${JSON.stringify(request.content)}\nTeacher instruction:\n${request.instruction}`
-    : `Create a multiple-choice quiz from these teacher notes:\n${request.teacherText}`;
+    ? `Refine this complete ${label} according to the teacher's instruction. Return the entire updated ${label}.\nCurrent content:\n${JSON.stringify(request.content)}\nTeacher instruction:\n${request.instruction}`
+    : `Create a ${label} from these teacher notes:\n${request.teacherText}`;
 
   if (repairProblems.length === 0) return task;
-  return `${task}\n\nThe previous draft failed validation. Fix these problems and return the entire corrected quiz:\n${repairProblems.map((problem) => `- ${problem}`).join("\n")}`;
+  return `${task}\n\nThe previous draft failed validation. Fix these problems and return the entire corrected ${label}:\n${repairProblems.map((problem) => `- ${problem}`).join("\n")}`;
 }
 
 function extractText(payload: unknown): { status: string; text: string } {
@@ -162,6 +204,10 @@ export async function generateWithGemini(
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) failGeminiRequest("not_configured", request, "");
+  const type = request.activityType;
+  if (type !== "multiple_choice" && type !== "true_false") {
+    failGeminiRequest("unavailable", request, apiKey);
+  }
 
   let response: Response;
   try {
@@ -175,12 +221,12 @@ export async function generateWithGemini(
       body: JSON.stringify({
         model: GEMINI_MODEL,
         store: false,
-        system_instruction: systemInstruction,
-        input: makeInput(request, repairProblems),
+        system_instruction: systemInstructions[type],
+        input: makeInput(request, repairProblems, type),
         response_format: {
           type: "text",
           mime_type: "application/json",
-          schema: multipleChoiceResponseSchema,
+          schema: responseSchemas[type],
         },
       }),
       signal: AbortSignal.timeout(30_000),

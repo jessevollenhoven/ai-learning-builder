@@ -1,6 +1,7 @@
 // Lists the signed-in teacher's saved activities through Supabase RLS.
 import Link from "next/link";
 import { createClient } from "../../lib/supabase/server";
+import { getActivityType } from "../../lib/activity-types";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -40,7 +41,7 @@ export default async function DashboardPage() {
               >
                 <span className="font-semibold">{activity.title}</span>
                 <span className="flex items-center justify-between gap-4 text-sm text-[#657067] sm:justify-end">
-                  <span>{activity.type}</span>
+                  <span>{getActivityType(activity.type)?.label ?? activity.type}</span>
                   <time className="min-w-28 text-right" dateTime={activity.created_at}>
                     {new Date(activity.created_at).toLocaleDateString("en", {
                       year: "numeric",
