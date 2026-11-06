@@ -3,7 +3,7 @@
 // Saves validated activities without supplying owner_id.
 import { revalidatePath } from "next/cache";
 import { buildActivityInsert, buildActivityShareUpdate } from "../../../lib/activity-utils";
-import { validateMultipleChoiceContent } from "../../../lib/checks";
+import { validateActivityContent } from "../../../lib/activity-types";
 import { createClient } from "../../../lib/supabase/server";
 
 export async function saveActivity(input: unknown) {
@@ -14,7 +14,7 @@ export async function saveActivity(input: unknown) {
     return { error: "Please sign in again before saving." };
   }
 
-  const validation = validateMultipleChoiceContent(input);
+  const validation = validateActivityContent(input);
   if (!validation.success) {
     return { error: validation.problems.join(" ") };
   }

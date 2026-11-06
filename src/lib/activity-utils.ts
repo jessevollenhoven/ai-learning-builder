@@ -1,9 +1,9 @@
 // Defines the browser draft key and narrow activity database payloads.
-import type { MultipleChoiceContent } from "./schemas";
+import type { ActivityContent } from "./schemas";
 
 export const activityDraftStorageKey = "ai-learning-builder:activity-draft";
 
-export function buildActivityInsert(content: MultipleChoiceContent) {
+export function buildActivityInsert(content: ActivityContent) {
   return {
     type: content.type,
     title: content.title,

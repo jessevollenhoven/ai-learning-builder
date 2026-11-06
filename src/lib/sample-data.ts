@@ -1,15 +1,5 @@
 // Keeps all prototype activity and quiz content in one place.
-import type { MultipleChoiceContent } from "./schemas";
-
-export const activityTypes = [
-  "Multiple choice",
-  "True / false",
-  "Flashcards",
-  "Matching",
-  "Ordering",
-] as const;
-
-export type ActivityType = (typeof activityTypes)[number];
+import type { MultipleChoiceContent, TrueFalseContent } from "./schemas";
 
 export const sampleQuiz: MultipleChoiceContent = {
   type: "multiple_choice",
@@ -46,6 +36,19 @@ export const sampleQuiz: MultipleChoiceContent = {
       correctIndex: 0,
       explanation: "Runoff carries water across land into streams, rivers, lakes, and eventually oceans.",
     },
+  ],
+};
+
+export const sampleTrueFalseQuiz: TrueFalseContent = {
+  type: "true_false",
+  title: "Water cycle facts",
+  instructions: "Decide whether each statement is true or false.",
+  statements: [
+    { statement: "The Sun provides energy that drives evaporation.", answer: true, explanation: "Solar energy warms water and helps it evaporate." },
+    { statement: "Condensation turns water vapor into liquid droplets.", answer: true, explanation: "Cooling vapor condenses into tiny liquid water droplets." },
+    { statement: "Precipitation only means rain.", answer: false, explanation: "Precipitation also includes snow, sleet, and hail." },
+    { statement: "Plants release water vapor through transpiration.", answer: true, explanation: "Plants release water vapor from their leaves." },
+    { statement: "The water cycle has a fixed starting point.", answer: false, explanation: "The water cycle is continuous, so it has no single starting point." },
   ],
 };
 

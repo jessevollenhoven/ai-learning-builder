@@ -1,6 +1,6 @@
-// Exposes only shared multiple-choice content that passes validation.
-import { validateMultipleChoiceContent } from "./checks";
-import type { MultipleChoiceContent } from "./schemas";
+// Exposes only shared activity content that passes validation.
+import { validateActivityContent } from "./activity-types";
+import type { ActivityContent } from "./schemas";
 
 type PublicActivityRow = {
   type: string;
@@ -8,11 +8,11 @@ type PublicActivityRow = {
   content: unknown;
 };
 
-export function getPublicActivityContent(
-  activity: PublicActivityRow | null,
-): MultipleChoiceContent | null {
-  if (!activity || !activity.shared || activity.type !== "multiple_choice") return null;
+export function getPublicActivityContent(activity: PublicActivityRow | null): ActivityContent | null {
+  if (!activity || !activity.shared) return null;
 
-  const validation = validateMultipleChoiceContent(activity.content);
-  return validation.success ? validation.data : null;
+  const validation = validateActivityContent(activity.content);
+  // The saved type must match the content, so mismatched rows are never shown.
+  if (!validation.success || validation.data.type !== activity.type) return null;
+  return validation.data;
 }
