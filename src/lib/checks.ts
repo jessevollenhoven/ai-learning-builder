@@ -1,10 +1,16 @@
 // Reports readability and duplicate-choice problems in validated activity content.
-import { multipleChoiceContentSchema, type MultipleChoiceContent } from "./schemas";
+import {
+  multipleChoiceContentSchema,
+  trueFalseContentSchema,
+  type MultipleChoiceContent,
+  type TrueFalseContent,
+} from "./schemas";
 
 const textLimits = {
   title: 70,
   instructions: 180,
   question: 180,
+  statement: 180,
   option: 75,
   explanation: 180,
 } as const;
@@ -52,6 +58,49 @@ export function validateMultipleChoiceContent(input: unknown):
   }
 
   const problems = checkMultipleChoiceContent(parsed.data);
+  return problems.length > 0
+    ? { success: false, problems }
+    : { success: true, data: parsed.data };
+}
+
+export function checkTrueFalseContent(content: TrueFalseContent): string[] {
+  const problems: string[] = [];
+
+  if (content.statements.length < 5 || content.statements.length > 15) {
+    problems.push("A quiz must have between 5 and 15 statements");
+  }
+  if (content.title.length > textLimits.title) {
+    problems.push(`The title must be ${textLimits.title} characters or fewer`);
+  }
+  if (content.instructions.length > textLimits.instructions) {
+    problems.push(`Instructions must be ${textLimits.instructions} characters or fewer`);
+  }
+
+  content.statements.forEach((item, index) => {
+    const number = index + 1;
+    if (!item.statement.trim()) {
+      problems.push(`Statement ${number} cannot be empty`);
+    }
+    if (item.statement.length > textLimits.statement) {
+      problems.push(`Statement ${number} is too long (maximum ${textLimits.statement} characters)`);
+    }
+    if (item.explanation.length > textLimits.explanation) {
+      problems.push(`Statement ${number} has an explanation that is too long (maximum ${textLimits.explanation} characters)`);
+    }
+  });
+
+  return problems;
+}
+
+export function validateTrueFalseContent(input: unknown):
+  | { success: true; data: TrueFalseContent }
+  | { success: false; problems: string[] } {
+  const parsed = trueFalseContentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, problems: parsed.error.issues.map((issue) => issue.message) };
+  }
+
+  const problems = checkTrueFalseContent(parsed.data);
   return problems.length > 0
     ? { success: false, problems }
     : { success: true, data: parsed.data };

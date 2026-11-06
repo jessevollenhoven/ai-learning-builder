@@ -47,3 +47,38 @@
   - A real AI call for generation. I can't afford an API key, so I'm asking Alex about a class key or a free model.
   - Share link, then the other four templates
 - Learned: why the server action leaves out `owner_id` (the database sets it from the logged-in user, so a teacher can't save a row under someone else's name), and why failed refinements keep the previous version.
+
+## Day 4 (5 Nov)
+- Built: public share link
+  - Added a `shared` column (default false) and an RLS policy so anyone can read a row only when `shared = true`. Teachers' other policies still stop anyone else editing or deleting.
+  - Owner-only Share toggle and "Copy link" on a saved activity, using a server action that checks login and updates only `shared`
+  - Public page `/a/<id>`: no login, one question at a time, score at the end, no refine/save/share controls. The content is validated with the Zod schema first. A missing, unshared or invalid activity shows "This activity isn't available".
+  - Extracted a shared quiz player used by both the owner preview and the public page
+- Tested:
+  - Unshared activity is not viewable in an incognito window: [pass/fail]
+  - Unsharing, then refreshing, shows the friendly message: [pass/fail]
+  - Account B cannot switch sharing on for account A's activity: [pass/fail]
+  - Phone test of the live share link: [result]
+- Agent got wrong / problems:
+  - I committed work on the wrong branch earlier and a `feat/real-ai` branch already existed. I checked with `git branch --no-merged main` that nothing was lost, then switched to it.
+  - Copilot's first build attempt did nothing because it was not in Agent mode (no edit or terminal tools). I switched mode and re-sent.
+
+## Day 4 (continued): real AI generation
+- Built:
+  - Replaced the AI stub with a real Gemini call (`src/lib/gemini.ts`): server-side only, structured JSON output, `store: false`, key read from `GEMINI_API_KEY`. The model is set by `GEMINI_MODEL`, so swapping is one line.
+  - Output is still validated with the Zod schema and content checks. If it fails, the problems go back to the AI once for a repair. If that fails too, the teacher sees a friendly error and the previous version is kept.
+  - Rate limits, timeouts, blocked or empty responses map to friendly messages. No key, headers or upstream bodies are exposed.
+  - Tests mock the provider, so no real AI calls run in CI.
+- Decisions:
+  - I can't afford a paid API key, so I used Google's free Gemini tier rather than Sonnet 5.5 (the brief only recommends Sonnet). [Say whether Alex approved this.]
+  - Free-tier content may be used to improve Google's products, so teachers must not paste children's names or personal details. This goes in the README as a POPIA note.
+- Problems and fixes:
+  - Generation showed "temporarily unavailable". A safe error log showed Google returning 503 "high demand" for `gemini-3.5-flash-lite`, so the cause was Google's capacity, not my code. Switching to [`gemini-3.1-flash-lite`] worked.
+  - The agent claimed `gemini-3.8-flash` was free-tier eligible. My own search turned up only its paid introductory price, so I made the agent re-check the pricing page before building.
+  - I had to run `npm test`, lint and build myself, because an earlier agent report of "done" hid four errors.
+- Still to do:
+  - Retry with a short wait, then a fallback model, for 503/429 errors (free models can be busy on demo day)
+  - Add `GEMINI_API_KEY`, `GEMINI_MODEL` and `FAKE_MODE=false` in Vercel after merging, redeploy, and test on my phone
+  - Write the 10-request test set from real generations
+  - Applied for the GitHub Student Developer Pack in case Copilot credits run low: [status]
+- Learned: why the API key stays on the server and out of git, why AI output is validated even with structured output (Google doesn't enforce string lengths or duplicates), and why a friendly error needs a safe log behind it so the real cause can be found.

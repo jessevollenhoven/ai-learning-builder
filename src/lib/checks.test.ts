@@ -1,7 +1,17 @@
 // Covers successful content and each quality-check failure.
 import { describe, expect, it } from "vitest";
-import { checkMultipleChoiceContent, validateMultipleChoiceContent } from "./checks";
-import { generateRequestSchema, multipleChoiceContentSchema, type MultipleChoiceContent } from "./schemas";
+import {
+  checkMultipleChoiceContent,
+  checkTrueFalseContent,
+  validateMultipleChoiceContent,
+  validateTrueFalseContent,
+} from "./checks";
+import {
+  generateRequestSchema,
+  multipleChoiceContentSchema,
+  type MultipleChoiceContent,
+  type TrueFalseContent,
+} from "./schemas";
 import { getRefinedSampleQuiz, sampleQuiz } from "./sample-data";
 
 function makeContent(questionCount = 5): MultipleChoiceContent {
@@ -14,6 +24,19 @@ function makeContent(questionCount = 5): MultipleChoiceContent {
       options: ["First", "Second", "Third", "Fourth"],
       correctIndex: 0,
       explanation: "The first option is correct.",
+    })),
+  };
+}
+
+function makeTrueFalseContent(statementCount = 5): TrueFalseContent {
+  return {
+    type: "true_false",
+    title: "Water cycle facts",
+    instructions: "Decide whether each statement is true or false.",
+    statements: Array.from({ length: statementCount }, (_, index) => ({
+      statement: `Statement ${index + 1}`,
+      answer: index % 2 === 0,
+      explanation: "Water changes state as it moves through the cycle.",
     })),
   };
 }
@@ -109,5 +132,35 @@ describe("checkMultipleChoiceContent", () => {
     content.questions[3].options = ["River", " rain ", "Rain", "Ocean"];
 
     expect(checkMultipleChoiceContent(content)).toContain("Question 4 has two identical options");
+  });
+
+  it("accepts clear true/false statements", () => {
+    expect(checkTrueFalseContent(makeTrueFalseContent())).toEqual([]);
+  });
+
+  it("reports an empty true/false statement", () => {
+    const content = makeTrueFalseContent();
+    content.statements[2].statement = "   ";
+
+    expect(checkTrueFalseContent(content)).toContain("Statement 3 cannot be empty");
+  });
+
+  it("reports true/false text that is too long", () => {
+    const content = makeTrueFalseContent();
+    content.statements[1].statement = "S".repeat(181);
+
+    expect(checkTrueFalseContent(content)).toContain("Statement 2 is too long (maximum 180 characters)");
+  });
+
+  it("reports true/false quizzes outside the sensible count range", () => {
+    expect(checkTrueFalseContent(makeTrueFalseContent(4))).toContain("A quiz must have between 5 and 15 statements");
+    expect(checkTrueFalseContent(makeTrueFalseContent(16))).toContain("A quiz must have between 5 and 15 statements");
+  });
+
+  it("validates true/false content against its schema and checks", () => {
+    expect(validateTrueFalseContent(makeTrueFalseContent())).toEqual({
+      success: true,
+      data: makeTrueFalseContent(),
+    });
   });
 });
