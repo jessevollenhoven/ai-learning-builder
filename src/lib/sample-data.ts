@@ -1,5 +1,5 @@
 // Keeps all prototype activity and quiz content in one place.
-import type { MultipleChoiceContent } from "./schemas";
+import type { MultipleChoiceContent, TrueFalseContent } from "./schemas";
 
 export const sampleQuiz: MultipleChoiceContent = {
   type: "multiple_choice",
@@ -39,7 +39,7 @@ export const sampleQuiz: MultipleChoiceContent = {
   ],
 };
 
-export const sampleTrueFalseQuiz = {
+export const sampleTrueFalseQuiz: TrueFalseContent = {
   type: "true_false",
   title: "Water cycle facts",
   instructions: "Decide whether each statement is true or false.",
@@ -50,7 +50,7 @@ export const sampleTrueFalseQuiz = {
     { statement: "Plants release water vapor through transpiration.", answer: true, explanation: "Plants release water vapor from their leaves." },
     { statement: "The water cycle has a fixed starting point.", answer: false, explanation: "The water cycle is continuous, so it has no single starting point." },
   ],
-} as const;
+};
 
 export function getRefinedSampleQuiz(): MultipleChoiceContent {
   return { ...sampleQuiz, title: `${sampleQuiz.title} (refined)` };

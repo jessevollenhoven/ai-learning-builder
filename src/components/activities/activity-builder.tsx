@@ -4,13 +4,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { activityTypes, type ActivityType } from "../../lib/sample-data";
+import { activityTypeOptions, validateActivityContent } from "../../lib/activity-types";
 import { activityDraftStorageKey } from "../../lib/activity-utils";
-import { validateMultipleChoiceContent } from "../../lib/checks";
+import type { ActivityTypeId } from "../../lib/schemas";
 
 export function ActivityBuilder() {
   const router = useRouter();
-  const [selectedType, setSelectedType] = useState<ActivityType>(activityTypes[0]);
+  const [selectedType, setSelectedType] = useState<ActivityTypeId>("multiple_choice");
   const [notes, setNotes] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -23,7 +23,7 @@ export function ActivityBuilder() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ activityType: "multiple_choice", teacherText: notes }),
+        body: JSON.stringify({ activityType: selectedType, teacherText: notes }),
       });
       const result: unknown = await response.json();
 
@@ -36,7 +36,8 @@ export function ActivityBuilder() {
         return;
       }
 
-      const validation = validateMultipleChoiceContent(result);
+      // Check the result again in the browser before showing it.
+      const validation = validateActivityContent(result);
       if (!validation.success) {
         setError("The activity preview wasn't valid. Please try again.");
         return;
@@ -62,10 +63,10 @@ export function ActivityBuilder() {
 
       <fieldset className="mt-8">
         <legend className="text-sm font-semibold">Activity type</legend>
-        <p className="mt-1 text-xs text-[#818a81]">Multiple choice is available now. Other formats are coming later.</p>
+        <p className="mt-1 text-xs text-[#818a81]">Formats marked &quot;Coming soon&quot; aren&apos;t built yet.</p>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {activityTypes.map((type) => {
-            const selected = type === selectedType;
+          {activityTypeOptions.map((option) => {
+            const selected = option.type === selectedType;
             return (
               <button
                 aria-pressed={selected}
@@ -74,12 +75,13 @@ export function ActivityBuilder() {
                     ? "border-[#183d31] bg-[#e8eee8] text-[#183d31]"
                     : "border-[#d8ded7] bg-white hover:border-[#8da596] disabled:cursor-not-allowed disabled:opacity-45"
                 }`}
-                key={type}
-                disabled={type !== activityTypes[0]}
-                onClick={() => setSelectedType(type)}
+                key={option.type}
+                disabled={!option.enabled}
+                onClick={() => setSelectedType(option.type)}
                 type="button"
               >
-                {type}
+                {option.label}
+                {!option.enabled && <span className="block text-xs font-normal">Coming soon</span>}
               </button>
             );
           })}
@@ -101,7 +103,7 @@ export function ActivityBuilder() {
       {error && <p className="mt-4 text-sm text-[#a3332d]" role="alert">{error}</p>}
       <button
         className="mt-7 inline-flex min-h-14 w-full items-center justify-center rounded-md bg-[#183d31] px-5 text-base font-semibold text-white transition hover:bg-[#245541] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#183d31] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-48"
-        disabled={pending || !notes.trim() || selectedType !== activityTypes[0]}
+        disabled={pending || !notes.trim()}
         onClick={generateActivity}
         type="button"
       >

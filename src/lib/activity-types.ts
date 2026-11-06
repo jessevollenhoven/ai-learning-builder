@@ -3,12 +3,12 @@ import type { ComponentType } from "react";
 import { checkMultipleChoiceContent, checkTrueFalseContent } from "./checks";
 import { sampleQuiz, sampleTrueFalseQuiz } from "./sample-data";
 import {
+  activityContentSchema,
   multipleChoiceContentSchema,
   trueFalseContentSchema,
   type ActivityContent,
   type ActivityTypeId,
-} from "./schemas";
-import { MultipleChoicePlayer } from "../components/activities/multiple-choice-player";
+} from "./schemas";import { MultipleChoicePlayer } from "../components/activities/multiple-choice-player";
 import type { ActivityPlayerProps } from "../components/activities/player-types";
 import { TrueFalsePlayer } from "../components/activities/true-false-player";
 
@@ -102,26 +102,11 @@ export function getActivityType(type: string): ActivityTypeDefinition | undefine
 export function validateActivityContent(input: unknown):
   | { success: true; data: ActivityContent }
   | { success: false; problems: string[] } {
-  const parsed = importActivityContent(input);
-  if (!parsed.success) return parsed;
-
+  const parsed = activityContentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, problems: parsed.error.issues.map((issue) => issue.message) };
+  }
   const definition = activityTypes[parsed.data.type];
   const problems = definition.checks?.(parsed.data) ?? ["This activity type is not enabled"];
-  return problems.length > 0
-    ? { success: false, problems }
-    : { success: true, data: parsed.data };
+  return problems.length > 0 ? { success: false, problems } : { success: true, data: parsed.data };
 }
-
-function importActivityContent(input: unknown) {
-  const { activityContentSchema } = requireSchemas();
-  const parsed = activityContentSchema.safeParse(input);
-  return parsed.success
-    ? { success: true as const, data: parsed.data }
-    : { success: false as const, problems: parsed.error.issues.map((issue) => issue.message) };
-}
-
-function requireSchemas() {
-  return { activityContentSchema: requireActivityContentSchema };
-}
-
-import { activityContentSchema as requireActivityContentSchema } from "./schemas";
