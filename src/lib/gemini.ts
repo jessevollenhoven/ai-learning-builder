@@ -142,11 +142,37 @@ const trueFalseResponseSchema = {
   required: ["type", "title", "instructions", "statements"],
 } as const;
 
-type GeneratableType = "multiple_choice" | "true_false";
+const flashcardsResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    type: { type: "string", enum: ["flashcards"] },
+    title: { type: "string" },
+    instructions: { type: "string" },
+    cards: {
+      type: "array",
+      minItems: 5,
+      maxItems: 20,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          front: { type: "string" },
+          back: { type: "string" },
+        },
+        required: ["front", "back"],
+      },
+    },
+  },
+  required: ["type", "title", "instructions", "cards"],
+} as const;
+
+type GeneratableType = "multiple_choice" | "true_false" | "flashcards";
 
 const responseSchemas = {
   multiple_choice: multipleChoiceResponseSchema,
   true_false: trueFalseResponseSchema,
+  flashcards: flashcardsResponseSchema,
 } as const;
 
 const commonInstruction =
@@ -160,10 +186,19 @@ const systemInstructions: Record<GeneratableType, string> = {
   true_false:
     commonInstruction +
     "Write 5 to 15 clear true/false statements, each with a boolean answer and a short explanation. Mix true and false answers and avoid tricky wording.",
+  flashcards:
+    commonInstruction +
+    "Write 5 to 20 flashcards. Each has a short front (a term or question) and a clear, brief back (the definition or answer). Do not repeat a front.",
+};
+
+const typeLabels: Record<GeneratableType, string> = {
+  multiple_choice: "multiple-choice quiz",
+  true_false: "true/false quiz",
+  flashcards: "deck of flashcards",
 };
 
 function makeInput(request: GenerateRequest, repairProblems: string[], type: GeneratableType): string {
-  const label = type === "multiple_choice" ? "multiple-choice quiz" : "true/false quiz";
+  const label = typeLabels[type];
   const task = "mode" in request
     ? `Refine this complete ${label} according to the teacher's instruction. Return the entire updated ${label}.\nCurrent content:\n${JSON.stringify(request.content)}\nTeacher instruction:\n${request.instruction}`
     : `Create a ${label} from these teacher notes:\n${request.teacherText}`;
@@ -205,7 +240,7 @@ export async function generateWithGemini(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) failGeminiRequest("not_configured", request, "");
   const type = request.activityType;
-  if (type !== "multiple_choice" && type !== "true_false") {
+    if (type !== "multiple_choice" && type !== "true_false" && type !== "flashcards") {
     failGeminiRequest("unavailable", request, apiKey);
   }
 
