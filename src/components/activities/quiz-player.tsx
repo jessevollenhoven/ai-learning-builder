@@ -1,19 +1,24 @@
-// Runs the question flow, score, and replay for any registered activity type.
+// Picks the right player for an activity: flip cards, or the question-and-answer flow.
 "use client";
 
 import { useState } from "react";
 import { activityTypes } from "../../lib/activity-types";
 import type { ActivityContent } from "../../lib/schemas";
+import { FlashcardPlayer } from "./flashcards-player";
 
-type QuizPlayerProps = {
-  content: ActivityContent;
-};
+type QuestionContent = Exclude<ActivityContent, { type: "flashcards" }>;
 
-function countItems(content: ActivityContent): number {
+function countItems(content: QuestionContent): number {
   return content.type === "multiple_choice" ? content.questions.length : content.statements.length;
 }
 
-export function QuizPlayer({ content }: QuizPlayerProps) {
+export function QuizPlayer({ content }: { content: ActivityContent }) {
+  if (content.type === "flashcards") return <FlashcardPlayer content={content} />;
+  return <QuestionPlayer content={content} />;
+}
+
+// Runs the question flow, score, and replay for multiple choice and true/false.
+function QuestionPlayer({ content }: { content: QuestionContent }) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | boolean | null>(null);
   const [score, setScore] = useState(0);

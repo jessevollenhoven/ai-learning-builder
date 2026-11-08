@@ -28,16 +28,29 @@ export const trueFalseContentSchema = z.object({
   statements: z.array(trueFalseStatementSchema).min(5).max(15),
 });
 
+export const flashcardSchema = z.object({
+  front: z.string().trim().min(1),
+  back: z.string().trim().min(1),
+});
+
+export const flashcardsContentSchema = z.object({
+  type: z.literal("flashcards"),
+  title: z.string().trim().min(1),
+  instructions: z.string().trim().min(1),
+  cards: z.array(flashcardSchema).min(5).max(20),
+});
+
 export const activityContentSchema = z.discriminatedUnion("type", [
   multipleChoiceContentSchema,
   trueFalseContentSchema,
+  flashcardsContentSchema,
 ]);
 
 export type MultipleChoiceContent = z.infer<typeof multipleChoiceContentSchema>;
 export type TrueFalseContent = z.infer<typeof trueFalseContentSchema>;
+export type FlashcardsContent = z.infer<typeof flashcardsContentSchema>;
 export type ActivityContent = z.infer<typeof activityContentSchema>;
-export type ActivityTypeId = ActivityContent["type"] | "flashcards" | "matching" | "ordering";
-
+export type ActivityTypeId = ActivityContent["type"] | "matching" | "ordering";
 export const activityTypeSchema = z.enum([
   "multiple_choice",
   "true_false",

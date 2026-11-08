@@ -1,18 +1,21 @@
 // Covers successful content and each quality-check failure.
 import { describe, expect, it } from "vitest";
 import {
+  checkFlashcardsContent,
   checkMultipleChoiceContent,
   checkTrueFalseContent,
+  validateFlashcardsContent,
   validateMultipleChoiceContent,
   validateTrueFalseContent,
 } from "./checks";
 import {
   generateRequestSchema,
   multipleChoiceContentSchema,
+  type FlashcardsContent,
   type MultipleChoiceContent,
   type TrueFalseContent,
 } from "./schemas";
-import { getRefinedSampleQuiz, sampleQuiz } from "./sample-data";
+import { getRefinedSampleQuiz, sampleFlashcards, sampleQuiz } from "./sample-data";
 
 function makeContent(questionCount = 5): MultipleChoiceContent {
   return {
@@ -162,5 +165,59 @@ describe("checkMultipleChoiceContent", () => {
       success: true,
       data: makeTrueFalseContent(),
     });
+  });
+});
+
+function makeFlashcardsContent(cardCount = 5): FlashcardsContent {
+  return {
+    type: "flashcards",
+    title: "Plant parts",
+    instructions: "Flip each card, then say whether you knew it.",
+    cards: Array.from({ length: cardCount }, (_, index) => ({
+      front: `Term ${index + 1}`,
+      back: `Definition ${index + 1}`,
+    })),
+  };
+}
+
+describe("checkFlashcardsContent", () => {
+  it("accepts a clear deck", () => {
+    expect(checkFlashcardsContent(makeFlashcardsContent())).toEqual([]);
+  });
+
+  it("keeps the sample deck valid", () => {
+    expect(validateFlashcardsContent(sampleFlashcards).success).toBe(true);
+  });
+
+  it("reports an empty front or back", () => {
+    const content = makeFlashcardsContent();
+    content.cards[0].front = "  ";
+    content.cards[1].back = "";
+
+    const problems = checkFlashcardsContent(content);
+    expect(problems).toContain("Card 1 needs text on the front");
+    expect(problems).toContain("Card 2 needs text on the back");
+  });
+
+  it("reports duplicate fronts ignoring case and spaces", () => {
+    const content = makeFlashcardsContent();
+    content.cards[3].front = " term 1 ";
+
+    expect(checkFlashcardsContent(content)).toContain("Card 4 has the same front as an earlier card");
+  });
+
+  it("reports text that is too long for a phone", () => {
+    const content = makeFlashcardsContent();
+    content.cards[0].front = "F".repeat(121);
+    content.cards[1].back = "B".repeat(251);
+
+    const problems = checkFlashcardsContent(content);
+    expect(problems).toContain("Card 1 has a front that is too long (maximum 120 characters)");
+    expect(problems).toContain("Card 2 has a back that is too long (maximum 250 characters)");
+  });
+
+  it("reports decks outside the sensible size range", () => {
+    expect(checkFlashcardsContent(makeFlashcardsContent(4))).toContain("A deck must have between 5 and 20 cards");
+    expect(checkFlashcardsContent(makeFlashcardsContent(21))).toContain("A deck must have between 5 and 20 cards");
   });
 });

@@ -1,5 +1,5 @@
 // Keeps all prototype activity and quiz content in one place.
-import type { MultipleChoiceContent, TrueFalseContent } from "./schemas";
+import type { FlashcardsContent, MultipleChoiceContent, TrueFalseContent } from "./schemas";
 
 export const sampleQuiz: MultipleChoiceContent = {
   type: "multiple_choice",
@@ -55,3 +55,17 @@ export const sampleTrueFalseQuiz: TrueFalseContent = {
 export function getRefinedSampleQuiz(): MultipleChoiceContent {
   return { ...sampleQuiz, title: `${sampleQuiz.title} (refined)` };
 }
+
+export const sampleFlashcards: FlashcardsContent = {
+  type: "flashcards",
+  title: "Water cycle vocabulary",
+  instructions: "Read the word, tap the card to flip it, then say whether you knew it.",
+  cards: [
+    { front: "Evaporation", back: "Liquid water turns into water vapor, usually when it is warmed." },
+    { front: "Condensation", back: "Water vapor cools and turns into tiny liquid droplets." },
+    { front: "Precipitation", back: "Water that falls from clouds as rain, snow, sleet or hail." },
+    { front: "Transpiration", back: "Plants release water vapor from their leaves." },
+    { front: "Runoff", back: "Water that flows over land into streams, rivers and lakes." },
+    { front: "Collection", back: "Water gathers in oceans, lakes, rivers and underground." },
+  ],
+};

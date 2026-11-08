@@ -82,3 +82,51 @@
   - Write the 10-request test set from real generations
   - Applied for the GitHub Student Developer Pack in case Copilot credits run low: [status]
 - Learned: why the API key stays on the server and out of git, why AI output is validated even with structured output (Google doesn't enforce string lengths or duplicates), and why a friendly error needs a safe log behind it so the real cause can be found.
+
+## Day 5 ([date])
+- Built: activity type registry and true/false
+  - One registry file (`src/lib/activity-types.ts`) now holds each type's label, whether it is enabled, its Zod schema, content checks, AI prompt, fake-mode sample and player. Adding a type is one registry entry plus one player, with no changes to the route, builder or share page.
+  - Content is now a discriminated union on `type`. Generate, refine, save, the dashboard, the preview and the public `/a/<id>` page all go through the same validation (`validateActivityContent`).
+  - True/false: 5 to 15 statements with a boolean answer and a short explanation. Large True and False buttons for phones.
+  - The public page and save action reject a row whose saved `type` doesn't match its content.
+- Decisions:
+  - Kept the existing multiple choice player behaviour unchanged, and made old saved activities keep working.
+  - Flashcards, matching and ordering stay visible but disabled with a "Coming soon" label until their templates exist.
+- Agent got wrong / problems:
+  - Copilot hit its monthly credit limit part-way through the build (resets 1 December). It had added the registry and players but never wired them up, so `npm run build` failed on a stale import of `activityTypes` from `sample-data.ts`. I finished the wiring by hand, using Claude in chat to write the code and pasting it in myself.
+  - Copilot's earlier "plan" had been reported as implemented when it wasn't. Lesson: check `git status` and run the checks instead of trusting the summary.
+  - The agent left unused helper functions in `activity-types.ts` and an unused variable in the true/false player. I removed them (lint now reports nothing).
+  - My own mistake: I pasted `activityType: "content.type,"` as a string in `quiz-preview.tsx`, so Refine returned 400 "Invalid input". I found it by opening the browser Network tab, then Payload, and saw the literal text. I removed the quotes.
+- Tested:
+  - `npm test`, `npm run lint` and `npm run build` all pass (36 tests)
+  - Multiple choice still works: generate, refine, save, reopen: [pass/fail]
+  - Older saved activities still open: [pass/fail]
+  - True/false: generate, play, refine, save, share, public page in incognito: [pass/fail]
+  - Real AI true/false from my own notes: [what happened, were the answers correct and mixed true/false?]
+- Learned: why a registry beats `if (type === ...)` checks scattered through the app, why the server validates content before it is saved or shown, and how to read a failed request in the browser's Network tab.
+
+## Day 6 ([date])
+- Built: flashcards
+  - New Zod schema: 5 to 20 cards, each with a `front` and a `back`
+  - Content checks: empty front or back, duplicate fronts (ignoring case and spaces), text too long for a phone (front 120, back 250), and deck size
+  - 6 new tests for these checks (42 tests in total, all passing)
+  - A separate flip-card player: tap to flip, then "I knew it" or "Still learning", and a final tally with Play again. The shared question player was split into `QuizPlayer` (chooses the player) and `QuestionPlayer` (the existing flow), so multiple choice and true/false are unchanged.
+  - Gemini prompt and JSON schema for flashcards, and a fake-mode sample deck
+- Decisions:
+  - Flashcards got their own player instead of being squeezed into the answer-and-check flow, because there is no right or wrong answer to check.
+  - The final score is the number of cards the student said they knew.
+- Agent got wrong / problems: [none this time, or note anything. Code was written with Claude in chat because Copilot credits were used up. I pasted it in, ran `npm test`, `npm run lint` and `npm run build`, and tested it in the browser.]
+- Tested:
+  - Flip, tally and Play again work: [pass/fail]
+  - Save, share and public page in incognito: [pass/fail]
+  - Dashboard shows the "Flashcards" label: [pass/fail]
+  - Multiple choice and true/false still work: [pass/fail]
+  - On my phone: [result]
+  - Real AI deck from my own notes: [result, were the fronts distinct and the backs accurate?]
+- Still to do:
+  - Matching and ordering templates
+  - Direct editing without AI (change text, add, delete, reorder)
+  - Retry and fallback model for 503 errors from the free Gemini tier
+  - 10-request test set, README (including the POPIA note about free-tier data), and an email-confirmation switch-on before the demo
+  - Applied for the GitHub Student Developer Pack for Copilot credits: [status]
+- Learned: why each activity type needs its own checks (flashcards care about duplicate fronts, quizzes about duplicate options), and how splitting a component keeps old features from breaking while a new one is added.

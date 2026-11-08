@@ -1,21 +1,23 @@
 // Registers implemented activity schemas, checks, prompts, samples, and players.
 import type { ComponentType } from "react";
-import { checkMultipleChoiceContent, checkTrueFalseContent } from "./checks";
-import { sampleQuiz, sampleTrueFalseQuiz } from "./sample-data";
+import { checkFlashcardsContent, checkMultipleChoiceContent, checkTrueFalseContent } from "./checks";
+import { sampleFlashcards, sampleQuiz, sampleTrueFalseQuiz } from "./sample-data";
 import {
   activityContentSchema,
+  flashcardsContentSchema,
   multipleChoiceContentSchema,
   trueFalseContentSchema,
   type ActivityContent,
   type ActivityTypeId,
-} from "./schemas";import { MultipleChoicePlayer } from "../components/activities/multiple-choice-player";
+} from "./schemas";
+import { MultipleChoicePlayer } from "../components/activities/multiple-choice-player";
 import type { ActivityPlayerProps } from "../components/activities/player-types";
 import { TrueFalsePlayer } from "../components/activities/true-false-player";
 
 type ActivityTypeDefinition = {
   label: string;
   enabled: boolean;
-  schema: typeof multipleChoiceContentSchema | typeof trueFalseContentSchema | null;
+    schema: typeof multipleChoiceContentSchema | typeof trueFalseContentSchema | typeof flashcardsContentSchema | null;
   checks: ((content: ActivityContent) => string[]) | null;
   systemPrompt: string | null;
   sample: ActivityContent | null;
@@ -63,6 +65,12 @@ function getTrueFalseQuestion(content: ActivityContent, index: number): Activity
   };
 }
 
+function checkFlashcards(content: ActivityContent): string[] {
+  return content.type === "flashcards"
+    ? checkFlashcardsContent(content)
+    : ["The content type does not match the flashcards activity"];
+}
+
 export const activityTypes: Record<ActivityTypeId, ActivityTypeDefinition> = {
   multiple_choice: {
     label: "Multiple choice",
@@ -84,7 +92,17 @@ export const activityTypes: Record<ActivityTypeId, ActivityTypeDefinition> = {
     player: TrueFalsePlayer,
     getQuestion: getTrueFalseQuestion,
   },
-  flashcards: { label: "Flashcards", enabled: false, schema: null, checks: null, systemPrompt: null, sample: null, player: null, getQuestion: null },
+    // Flashcards use their own player (flashcards-player.tsx), so no per-question player is needed.
+  flashcards: {
+    label: "Flashcards",
+    enabled: true,
+    schema: flashcardsContentSchema,
+    checks: checkFlashcards,
+    systemPrompt: "Create a deck of flashcards, each with a short front (a term or question) and a clear back (the answer or definition).",
+    sample: sampleFlashcards,
+    player: null,
+    getQuestion: null,
+  },
   matching: { label: "Matching", enabled: false, schema: null, checks: null, systemPrompt: null, sample: null, player: null, getQuestion: null },
   ordering: { label: "Ordering", enabled: false, schema: null, checks: null, systemPrompt: null, sample: null, player: null, getQuestion: null },
 };
