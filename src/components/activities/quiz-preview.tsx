@@ -1,12 +1,14 @@
-// Previews, refines, and saves validated multiple-choice activities.
+// Previews, edits, refines, and saves validated activities.
 "use client";
 
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { saveActivity } from "../../app/dashboard/preview/actions";
+import { saveActivity, updateActivity } from "../../app/dashboard/preview/actions";
 import { activityDraftStorageKey } from "../../lib/activity-utils";
-import { activityTypes, validateActivityContent } from "../../lib/activity-types";import type { ActivityContent } from "../../lib/schemas";
+import { activityTypes, validateActivityContent } from "../../lib/activity-types";
+import type { ActivityContent } from "../../lib/schemas";
+import { ActivityEditor } from "./activity-editor";
 import { ActivityShareControls } from "./activity-share-controls";
 import { QuizPlayer } from "./quiz-player";
 
@@ -63,6 +65,8 @@ export function QuizPreview({ initialContent, isSaved = false, activityId, isSha
   const [refineError, setRefineError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [notice, setNotice] = useState("");
   const loadError = !initialContent && draftSnapshot !== null && !draftValidation?.success;
 
   useEffect(() => {
@@ -75,6 +79,7 @@ export function QuizPreview({ initialContent, isSaved = false, activityId, isSha
 
     setRefining(true);
     setRefineError("");
+    setNotice("");
 
     try {
       const response = await fetch("/api/generate", {
@@ -113,12 +118,37 @@ export function QuizPreview({ initialContent, isSaved = false, activityId, isSha
     }
   }
 
+  // Keeps hand edits in the preview. Saved activities are only changed in the database when the teacher saves.
+  function handleApplyEdit(updated: ActivityContent) {
+    if (!isSaved) {
+      sessionStorage.setItem(activityDraftStorageKey, JSON.stringify(updated));
+    }
+    setContentOverride(updated);
+    setPlayerVersion((version) => version + 1);
+    setEditing(false);
+    setSaveError("");
+    setNotice(isSaved ? "Changes applied. Choose Save changes to keep them." : "Changes applied.");
+  }
+
   async function handleSave() {
     if (!content) return;
 
     setSaving(true);
     setSaveError("");
+    setNotice("");
     try {
+      // A saved activity is updated in place. A new draft is saved as a new activity.
+      if (isSaved && activityId) {
+        const updateResult = await updateActivity(activityId, content);
+        if ("error" in updateResult) {
+          setSaveError(typeof updateResult.error === "string" ? updateResult.error : "We couldn't save your changes.");
+          return;
+        }
+        setNotice("Changes saved.");
+        router.refresh();
+        return;
+      }
+
       const result = await saveActivity(content);
       if ("error" in result) {
         if (typeof result.error === "string") {
@@ -157,41 +187,59 @@ export function QuizPreview({ initialContent, isSaved = false, activityId, isSha
               <h1 className="mt-2 text-2xl font-semibold sm:text-3xl">{content.title}</h1>
               <p className="mt-2 text-sm leading-6 text-[#657067]">{content.instructions}</p>
             </div>
-            <button
-              className="min-h-12 shrink-0 rounded-md bg-[#183d31] px-5 text-sm font-semibold text-white transition hover:bg-[#245541] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#183d31] disabled:cursor-wait disabled:opacity-50"
-              disabled={saving}
-              onClick={handleSave}
-              type="button"
-            >
-              {saving ? "Saving..." : isSaved ? "Save a copy" : "Save activity"}
-            </button>
+            <div className="flex shrink-0 gap-2">
+              <button
+                className="min-h-12 rounded-md border border-[#cbd4cb] px-5 text-sm font-semibold text-[#294337] transition hover:bg-[#edf1ea] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#183d31] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={editing}
+                onClick={() => setEditing(true)}
+                type="button"
+              >
+                Edit by hand
+              </button>
+              <button
+                className="min-h-12 rounded-md bg-[#183d31] px-5 text-sm font-semibold text-white transition hover:bg-[#245541] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#183d31] disabled:cursor-wait disabled:opacity-50"
+                disabled={saving}
+                onClick={handleSave}
+                type="button"
+              >
+                {saving ? "Saving..." : isSaved ? "Save changes" : "Save activity"}
+              </button>
+            </div>
           </div>
           {saveError && <p className="mt-3 text-sm text-[#a3332d]" role="alert">{saveError}</p>}
+          {notice && <p className="mt-3 text-sm text-[#294337]" role="status">{notice}</p>}
           {isSaved && activityId && (
             <ActivityShareControls activityId={activityId} initialShared={isShared} />
           )}
-          <QuizPlayer key={playerVersion} content={content} />
 
-          <form className="mt-7 border-y border-[#cbd4cb] bg-white p-5" onSubmit={handleRefine}>
-            <label className="block text-sm font-semibold" htmlFor="refine-instruction">
-              Refine this activity
-              <textarea
-                className="mt-2 min-h-24 w-full rounded-md border border-[#d8ded7] bg-white p-3 text-base font-normal leading-6 outline-none focus:border-[#527264] focus:ring-2 focus:ring-[#527264]/15"
-                id="refine-instruction"
-                onChange={(event) => setInstruction(event.target.value)}
-                placeholder="For example: make question 3 harder"
-                value={instruction}
-              />
-            </label>
-            {refineError && <p className="mt-3 text-sm text-[#a3332d]" role="alert">{refineError}</p>}
-            <button
-              className="mt-3 min-h-12 rounded-md border border-[#cbd4cb] px-5 text-sm font-semibold text-[#294337] transition hover:bg-[#edf1ea] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#183d31] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={refining || !instruction.trim()}
-              type="submit"
-            >
-              {refining ? "Refining..." : "Refine"}
-            </button>
-          </form>
+          {editing ? (
+            <ActivityEditor content={content} onApply={handleApplyEdit} onCancel={() => setEditing(false)} />
+          ) : (
+            <>
+              <QuizPlayer key={playerVersion} content={content} />
+
+              <form className="mt-7 border-y border-[#cbd4cb] bg-white p-5" onSubmit={handleRefine}>
+                <label className="block text-sm font-semibold" htmlFor="refine-instruction">
+                  Refine this activity
+                  <textarea
+                    className="mt-2 min-h-24 w-full rounded-md border border-[#d8ded7] bg-white p-3 text-base font-normal leading-6 outline-none focus:border-[#527264] focus:ring-2 focus:ring-[#527264]/15"
+                    id="refine-instruction"
+                    onChange={(event) => setInstruction(event.target.value)}
+                    placeholder="For example: make question 3 harder"
+                    value={instruction}
+                  />
+                </label>
+                {refineError && <p className="mt-3 text-sm text-[#a3332d]" role="alert">{refineError}</p>}
+                <button
+                  className="mt-3 min-h-12 rounded-md border border-[#cbd4cb] px-5 text-sm font-semibold text-[#294337] transition hover:bg-[#edf1ea] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#183d31] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={refining || !instruction.trim()}
+                  type="submit"
+                >
+                  {refining ? "Refining..." : "Refine"}
+                </button>
+              </form>
+            </>
+          )}
         </div>
       )}
     </main>

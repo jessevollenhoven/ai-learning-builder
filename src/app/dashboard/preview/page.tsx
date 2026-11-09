@@ -14,10 +14,14 @@ export default async function ActivityPreviewPage({ searchParams }: ActivityPrev
   if (Array.isArray(id)) notFound();
 
   const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (!userId) notFound();
   const { data: activity, error } = await supabase
     .from("activities")
     .select("id, type, content, shared")
     .eq("id", id)
+    .eq("owner_id", userId)
     .maybeSingle();
 
   if (error || !activity) notFound();
