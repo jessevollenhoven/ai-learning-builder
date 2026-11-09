@@ -4,6 +4,9 @@ import { getActivityType, validateActivityContent } from "../../../lib/activity-
 import { generateWithGemini, GeminiProviderError } from "../../../lib/gemini";
 import { generateRequestSchema } from "../../../lib/schemas";
 
+// Allow up to 60 seconds, because the AI may retry before it answers.
+export const maxDuration = 60;
+
 // Parses the AI's text and checks it is valid content of the type that was asked for.
 function validateGeneratedText(text: string, expectedType: string) {
   try {

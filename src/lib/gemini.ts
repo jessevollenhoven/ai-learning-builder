@@ -8,7 +8,7 @@ export const GEMINI_MODEL = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flas
 export type GeminiErrorKind = "not_configured" | "rate_limit" | "timeout" | "unavailable" | "blocked" | "empty";
 
 export class GeminiProviderError extends Error {
-  constructor(readonly kind: GeminiErrorKind) {
+  constructor(readonly kind: GeminiErrorKind, readonly httpStatus: number | null = null) {
     super(kind);
     this.name = "GeminiProviderError";
   }
@@ -56,15 +56,16 @@ function failGeminiRequest(
   request: GenerateRequest,
   apiKey: string,
   details: { httpStatus?: number | null; googleStatus?: unknown; googleMessage?: unknown } = {},
+  model: string = GEMINI_MODEL,
 ): never {
   logGeminiFailure({
     category: kind,
     httpStatus: details.httpStatus ?? null,
     googleStatus: typeof details.googleStatus === "string" ? details.googleStatus.slice(0, 120) : null,
     googleMessage: safeGoogleMessage(details.googleMessage, request, apiKey),
-    model: GEMINI_MODEL,
+    model,
   });
-  throw new GeminiProviderError(kind);
+  throw new GeminiProviderError(kind, details.httpStatus ?? null);
 }
 
 function getGoogleError(payload: unknown): { status?: unknown; message?: unknown } {
@@ -233,15 +234,38 @@ function extractText(payload: unknown): { status: string; text: string } {
   };
 }
 
-export async function generateWithGemini(
+// Used when the main model is busy. Set GEMINI_FALLBACK_MODEL to change it.
+export const GEMINI_FALLBACK_MODEL =
+  process.env.GEMINI_FALLBACK_MODEL?.trim() ||
+  (GEMINI_MODEL === "gemini-3.1-flash-lite" ? "gemini-3.8-flash" : "gemini-3.1-flash-lite");
+
+// Tests run with no waiting so they stay fast. Vitest sets NODE_ENV to "test".
+const retryWaitsMs = process.env.NODE_ENV === "test" ? [0, 0] : [1000, 3000];
+const totalBudgetMs = 30_000;
+const attemptTimeoutMs = 20_000;
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Only retry when Google is busy or slow, not when our request is wrong.
+function isRetryable(error: unknown): boolean {
+  if (!(error instanceof GeminiProviderError)) return false;
+  if (error.kind === "rate_limit" || error.kind === "timeout") return true;
+  return error.kind === "unavailable" && (error.httpStatus === null || error.httpStatus >= 500);
+}
+
+async function callGemini(
   request: GenerateRequest,
-  repairProblems: string[] = [],
+  repairProblems: string[],
+  model: string,
+  timeoutMs: number,
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) failGeminiRequest("not_configured", request, "");
+  if (!apiKey) failGeminiRequest("not_configured", request, "", {}, model);
   const type = request.activityType;
-    if (type !== "multiple_choice" && type !== "true_false" && type !== "flashcards") {
-    failGeminiRequest("unavailable", request, apiKey);
+  if (type !== "multiple_choice" && type !== "true_false" && type !== "flashcards") {
+    failGeminiRequest("unavailable", request, apiKey, {}, model);
   }
 
   let response: Response;
@@ -254,7 +278,7 @@ export async function generateWithGemini(
         "Api-Revision": "2026-05-20",
       },
       body: JSON.stringify({
-        model: GEMINI_MODEL,
+        model,
         store: false,
         system_instruction: systemInstructions[type],
         input: makeInput(request, repairProblems, type),
@@ -264,49 +288,85 @@ export async function generateWithGemini(
           schema: responseSchemas[type],
         },
       }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-      failGeminiRequest("timeout", request, apiKey);
+      failGeminiRequest("timeout", request, apiKey, {}, model);
     }
-    failGeminiRequest("unavailable", request, apiKey);
+    failGeminiRequest("unavailable", request, apiKey, {}, model);
   }
 
   let payload: unknown;
   try {
     payload = await response.json();
   } catch {
-    failGeminiRequest(response.ok ? "empty" : response.status === 429 ? "rate_limit" : "unavailable", request, apiKey, {
-      httpStatus: response.status,
-    });
+    failGeminiRequest(
+      response.ok ? "empty" : response.status === 429 ? "rate_limit" : "unavailable",
+      request,
+      apiKey,
+      { httpStatus: response.status },
+      model,
+    );
   }
 
   if (!response.ok) {
     const googleError = getGoogleError(payload);
-    failGeminiRequest(response.status === 429 ? "rate_limit" : "unavailable", request, apiKey, {
-      httpStatus: response.status,
-      googleStatus: googleError.status,
-      googleMessage: googleError.message,
-    });
+    failGeminiRequest(
+      response.status === 429 ? "rate_limit" : "unavailable",
+      request,
+      apiKey,
+      { httpStatus: response.status, googleStatus: googleError.status, googleMessage: googleError.message },
+      model,
+    );
   }
 
   const result = extractText(payload);
   if (result.status !== "completed") {
     const googleError = getGoogleError(payload);
-    failGeminiRequest("blocked", request, apiKey, {
-      httpStatus: response.status,
-      googleStatus: googleError.status ?? result.status,
-      googleMessage: googleError.message,
-    });
+    failGeminiRequest(
+      "blocked",
+      request,
+      apiKey,
+      { httpStatus: response.status, googleStatus: googleError.status ?? result.status, googleMessage: googleError.message },
+      model,
+    );
   }
   if (!result.text) {
     const googleError = getGoogleError(payload);
-    failGeminiRequest("empty", request, apiKey, {
-      httpStatus: response.status,
-      googleStatus: googleError.status ?? result.status,
-      googleMessage: googleError.message,
-    });
+    failGeminiRequest(
+      "empty",
+      request,
+      apiKey,
+      { httpStatus: response.status, googleStatus: googleError.status ?? result.status, googleMessage: googleError.message },
+      model,
+    );
   }
   return result.text;
+}
+
+// Tries the main model with short retries, then the fallback model, within a time limit.
+export async function generateWithGemini(
+  request: GenerateRequest,
+  repairProblems: string[] = [],
+): Promise<string> {
+  const models = GEMINI_FALLBACK_MODEL === GEMINI_MODEL ? [GEMINI_MODEL] : [GEMINI_MODEL, GEMINI_FALLBACK_MODEL];
+  const deadline = Date.now() + totalBudgetMs;
+  let lastError: unknown = new GeminiProviderError("unavailable");
+
+  for (const model of models) {
+    for (let attempt = 0; attempt <= retryWaitsMs.length; attempt++) {
+      const remaining = deadline - Date.now();
+      if (remaining < 2000) throw lastError;
+
+      try {
+        return await callGemini(request, repairProblems, model, Math.min(attemptTimeoutMs, remaining));
+      } catch (error) {
+        lastError = error;
+        if (!isRetryable(error)) throw error;
+        if (attempt < retryWaitsMs.length) await wait(retryWaitsMs[attempt]);
+      }
+    }
+  }
+  throw lastError;
 }

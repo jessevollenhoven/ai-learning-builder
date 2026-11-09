@@ -33,7 +33,8 @@ describe("generateWithGemini failure logging", () => {
 
     await expect(generateWithGemini(request)).rejects.toMatchObject({ kind: "rate_limit" });
 
-    expect(errorLog).toHaveBeenCalledTimes(1);
+    // 3 attempts on the main model plus 3 on the fallback model.
+expect(errorLog).toHaveBeenCalledTimes(6);
     expect(errorLog).toHaveBeenCalledWith("Gemini request failed", {
       category: "rate_limit",
       httpStatus: 429,
