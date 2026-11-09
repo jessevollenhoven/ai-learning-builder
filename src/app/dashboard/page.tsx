@@ -5,11 +5,16 @@ import { getActivityType } from "../../lib/activity-types";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const { data: activities, error } = await supabase
-    .from("activities")
-    .select("id, type, title, created_at")
-    .order("created_at", { ascending: false });
-
+    // The share policy lets any signed-in user read shared rows, so always filter by owner here.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+    const { data: activities, error } = userId
+    ? await supabase
+        .from("activities")
+        .select("id, type, title, created_at")
+        .eq("owner_id", userId)
+        .order("created_at", { ascending: false })
+    : { data: null, error: new Error("Not signed in") };
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8 sm:py-12">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
