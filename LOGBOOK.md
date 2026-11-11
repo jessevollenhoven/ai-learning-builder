@@ -83,7 +83,7 @@
   - Applied for the GitHub Student Developer Pack in case Copilot credits run low: [status]
 - Learned: why the API key stays on the server and out of git, why AI output is validated even with structured output (Google doesn't enforce string lengths or duplicates), and why a friendly error needs a safe log behind it so the real cause can be found.
 
-## Day 5 ([date])
+## Day 5 ([6 Nov])
 - Built: activity type registry and true/false
   - One registry file (`src/lib/activity-types.ts`) now holds each type's label, whether it is enabled, its Zod schema, content checks, AI prompt, fake-mode sample and player. Adding a type is one registry entry plus one player, with no changes to the route, builder or share page.
   - Content is now a discriminated union on `type`. Generate, refine, save, the dashboard, the preview and the public `/a/<id>` page all go through the same validation (`validateActivityContent`).
@@ -105,7 +105,7 @@
   - Real AI true/false from my own notes: [what happened, were the answers correct and mixed true/false?]
 - Learned: why a registry beats `if (type === ...)` checks scattered through the app, why the server validates content before it is saved or shown, and how to read a failed request in the browser's Network tab.
 
-## Day 6 ([date])
+## Day 6 ([8 Nov])
 - Built: flashcards
   - New Zod schema: 5 to 20 cards, each with a `front` and a `back`
   - Content checks: empty front or back, duplicate fronts (ignoring case and spaces), text too long for a phone (front 120, back 250), and deck size
@@ -130,3 +130,25 @@
   - 10-request test set, README (including the POPIA note about free-tier data), and an email-confirmation switch-on before the demo
   - Applied for the GitHub Student Developer Pack for Copilot credits: [status]
 - Learned: why each activity type needs its own checks (flashcards care about duplicate fronts, quizzes about duplicate options), and how splitting a component keeps old features from breaking while a new one is added.
+
+## Day 7 ([date]) (written up on [date, if later])
+- Built:
+  - Retry and fallback for the free Gemini tier (`src/lib/gemini.ts`). On a 429, 5xx or timeout it waits 1 second, then 3 seconds, retries, then tries a fallback model (`GEMINI_FALLBACK_MODEL`). It stops after about 30 seconds so the page doesn't hang. It does not retry a bad key or a bad request, because that can't succeed. `route.ts` allows up to 60 seconds.
+  - Direct editing without AI (`activity-editor.tsx`): edit the title, instructions and every item of multiple choice, true/false and flashcards, mark the correct answer, add and delete items, and reorder with Move up / Move down buttons. Edits work on a copy and go through the same Zod schema and content checks as AI output, so a teacher sees plain-English problems before anything changes. Cancel discards them.
+  - Saved activities now update in place (`updateActivity` server action: checks login, validates, updates only `title`, `content` and `updated_at`, and matches on `type` so an edit can't turn one type into another). Before, "Save a copy" made a duplicate every time.
+- Decisions:
+  - Up and down buttons instead of drag and drop, because they work on phones and are simpler to build and test.
+  - Hand edits are applied to the preview first and only saved when the teacher chooses Save changes.
+- Agent got wrong / problems:
+  - The old Gemini logging test expected one error log, but with retries a failing request now logs six (three attempts on each of two models), so the test failed. I updated the expected count. A second test timed out because the retry waits made it slow, so the waits are now skipped when `NODE_ENV` is "test".
+  - Copilot credits are still used up, so the code was written with Claude in chat and I pasted it in, ran `npm test`, `npm run lint` and `npm run build`, and tested it in the browser.
+- Tested:
+  - Retry and fallback with real AI: [result, did a busy model recover or fall back?]
+  - Edit by hand on all three types, including add, delete, reorder and a validation error: [pass/fail]
+  - Edit then Save changes on a saved activity, no duplicate, edit visible after a refresh and on the public link: [pass/fail]
+  - Two-account test: [see below]
+- Two-account test finding:
+  - Testing with two tabs in one browser showed the same data for both accounts, because the tabs share one login cookie. Repeated with a normal window and an incognito window: [what you saw].
+  - Separately, I found a real weakness: the share policy ("anyone can read rows where `shared = true`") also applies to signed-in users, and the dashboard and owner preview relied on RLS alone, so another teacher's shared activity could appear there. Fix: filter both by `owner_id` from the verified login claims. Re-tested: [result, only if you applied the fix].
+- Still to do: matching and ordering templates, the 10-request test set, the README (including the POPIA note), turning email confirmation back on, delete with confirmation, phone testing, and a real teacher test if possible.
+- Learned: why a read policy for strangers needs a matching owner filter in the app, why two tabs in one browser share a session, and why retries should only happen for errors that can fix themselves.
