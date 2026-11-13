@@ -11,6 +11,7 @@ import type { ActivityContent } from "../../lib/schemas";
 import { ActivityEditor } from "./activity-editor";
 import { ActivityShareControls } from "./activity-share-controls";
 import { QuizPlayer } from "./quiz-player";
+import { DeleteActivityButton } from "./delete-activity-button";
 
 type QuizPreviewProps = {
   initialContent?: ActivityContent;
@@ -240,6 +241,7 @@ export function QuizPreview({ initialContent, isSaved = false, activityId, isSha
               </form>
             </>
           )}
+          {isSaved && activityId && <DeleteActivityButton activityId={activityId} />}
         </div>
       )}
     </main>
