@@ -168,12 +168,38 @@ const flashcardsResponseSchema = {
   required: ["type", "title", "instructions", "cards"],
 } as const;
 
-type GeneratableType = "multiple_choice" | "true_false" | "flashcards";
+const matchingResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    type: { type: "string", enum: ["matching"] },
+    title: { type: "string" },
+    instructions: { type: "string" },
+    pairs: {
+      type: "array",
+      minItems: 4,
+      maxItems: 10,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          left: { type: "string" },
+          right: { type: "string" },
+        },
+        required: ["left", "right"],
+      },
+    },
+  },
+  required: ["type", "title", "instructions", "pairs"],
+} as const;
+
+type GeneratableType = "multiple_choice" | "true_false" | "flashcards" | "matching";
 
 const responseSchemas = {
   multiple_choice: multipleChoiceResponseSchema,
   true_false: trueFalseResponseSchema,
   flashcards: flashcardsResponseSchema,
+  matching: matchingResponseSchema,
 } as const;
 
 const commonInstruction =
@@ -190,13 +216,21 @@ const systemInstructions: Record<GeneratableType, string> = {
   flashcards:
     commonInstruction +
     "Write 5 to 20 flashcards. Each has a short front (a term or question) and a clear, brief back (the definition or answer). Do not repeat a front.",
+  matching:
+    commonInstruction +
+    "Write 4 to 10 matching pairs. Each pair has a short term (left) and its partner (right), such as a definition. Every term and every partner must be different, and each term must match only one partner.",
 };
 
 const typeLabels: Record<GeneratableType, string> = {
   multiple_choice: "multiple-choice quiz",
   true_false: "true/false quiz",
   flashcards: "deck of flashcards",
+  matching: "matching game",
 };
+
+function isGeneratableType(type: string): type is GeneratableType {
+  return Object.hasOwn(responseSchemas, type);
+}
 
 function makeInput(request: GenerateRequest, repairProblems: string[], type: GeneratableType): string {
   const label = typeLabels[type];
@@ -264,7 +298,7 @@ async function callGemini(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) failGeminiRequest("not_configured", request, "", {}, model);
   const type = request.activityType;
-  if (type !== "multiple_choice" && type !== "true_false" && type !== "flashcards") {
+    if (!isGeneratableType(type)) {
     failGeminiRequest("unavailable", request, apiKey, {}, model);
   }
 

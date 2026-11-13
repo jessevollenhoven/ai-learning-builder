@@ -231,6 +231,37 @@ export function ActivityEditor({ content, onApply, onCancel }: ActivityEditorPro
         </div>
       )}
 
+            {draft.type === "matching" && (
+        <div className="mt-6 grid gap-5">
+          {draft.pairs.map((pair, index) => (
+            <fieldset className="border border-[#d8ded7] p-4" key={index}>
+              <legend className="px-1 text-sm font-semibold">Pair {index + 1}</legend>
+              <TextField label="Term" onChange={(value) => update((d) => { if (d.type === "matching") d.pairs[index].left = value; })} value={pair.left} />
+              <TextField label="Partner" multiline onChange={(value) => update((d) => { if (d.type === "matching") d.pairs[index].right = value; })} value={pair.right} />
+              <ItemControls
+                index={index}
+                minItems={4}
+                onDelete={() => update((d) => { if (d.type === "matching") d.pairs.splice(index, 1); })}
+                onMove={(to) => update((d) => { if (d.type === "matching") moveItem(d.pairs, index, to); })}
+                total={draft.pairs.length}
+              />
+            </fieldset>
+          ))}
+          <button
+            className={smallButton}
+            disabled={draft.pairs.length >= 10}
+            onClick={() => update((d) => {
+              if (d.type === "matching") {
+                d.pairs.push({ left: `New term ${d.pairs.length + 1}`, right: `New partner ${d.pairs.length + 1}` });
+              }
+            })}
+            type="button"
+          >
+            Add a pair
+          </button>
+        </div>
+      )}
+
       {problems.length > 0 && (
         <div className="mt-6 rounded-md bg-[#fbeeec] p-4 text-sm text-[#a3332d]" role="alert">
           <p className="font-semibold">Please fix these before applying:</p>

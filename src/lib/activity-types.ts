@@ -1,12 +1,13 @@
 // Registers implemented activity schemas, checks, prompts, samples, and players.
 import type { ComponentType } from "react";
-import { checkFlashcardsContent, checkMultipleChoiceContent, checkTrueFalseContent } from "./checks";
-import { sampleFlashcards, sampleQuiz, sampleTrueFalseQuiz } from "./sample-data";
+import { checkFlashcardsContent, checkMatchingContent, checkMultipleChoiceContent, checkTrueFalseContent } from "./checks";
+import { sampleFlashcards, sampleMatching, sampleQuiz, sampleTrueFalseQuiz } from "./sample-data";
 import {
   activityContentSchema,
   flashcardsContentSchema,
   multipleChoiceContentSchema,
   trueFalseContentSchema,
+  matchingContentSchema,
   type ActivityContent,
   type ActivityTypeId,
 } from "./schemas";
@@ -17,7 +18,12 @@ import { TrueFalsePlayer } from "../components/activities/true-false-player";
 type ActivityTypeDefinition = {
   label: string;
   enabled: boolean;
-    schema: typeof multipleChoiceContentSchema | typeof trueFalseContentSchema | typeof flashcardsContentSchema | null;
+    schema:
+    | typeof multipleChoiceContentSchema
+    | typeof trueFalseContentSchema
+    | typeof flashcardsContentSchema
+    | typeof matchingContentSchema
+    | null;
   checks: ((content: ActivityContent) => string[]) | null;
   systemPrompt: string | null;
   sample: ActivityContent | null;
@@ -71,6 +77,12 @@ function checkFlashcards(content: ActivityContent): string[] {
     : ["The content type does not match the flashcards activity"];
 }
 
+function checkMatching(content: ActivityContent): string[] {
+  return content.type === "matching"
+    ? checkMatchingContent(content)
+    : ["The content type does not match the matching activity"];
+}
+
 export const activityTypes: Record<ActivityTypeId, ActivityTypeDefinition> = {
   multiple_choice: {
     label: "Multiple choice",
@@ -103,7 +115,17 @@ export const activityTypes: Record<ActivityTypeId, ActivityTypeDefinition> = {
     player: null,
     getQuestion: null,
   },
-  matching: { label: "Matching", enabled: false, schema: null, checks: null, systemPrompt: null, sample: null, player: null, getQuestion: null },
+    // Matching uses its own player (matching-player.tsx), like flashcards.
+  matching: {
+    label: "Matching",
+    enabled: true,
+    schema: matchingContentSchema,
+    checks: checkMatching,
+    systemPrompt: "Create matching pairs, each with a short term and a partner such as its definition.",
+    sample: sampleMatching,
+    player: null,
+    getQuestion: null,
+  },
   ordering: { label: "Ordering", enabled: false, schema: null, checks: null, systemPrompt: null, sample: null, player: null, getQuestion: null },
 };
 
