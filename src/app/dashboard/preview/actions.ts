@@ -95,3 +95,33 @@ export async function updateActivity(id: string, input: unknown) {
   revalidatePath("/a/[id]", "page");
   return { success: true };
 }
+
+// Deletes one of the signed-in teacher's activities. The database policy also limits this to the owner.
+export async function deleteActivity(id: string) {
+  if (typeof id !== "string" || !id.trim()) {
+    return { error: "Invalid activity." };
+  }
+
+  const supabase = await createClient();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (claimsError || !userId) {
+    return { error: "Please sign in again before deleting." };
+  }
+
+  const { data, error } = await supabase
+    .from("activities")
+    .delete()
+    .eq("id", id)
+    .eq("owner_id", userId)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    return { error: "We couldn't delete this activity. Please try again." };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/a/[id]", "page");
+  return { success: true };
+}
