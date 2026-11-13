@@ -1,9 +1,11 @@
 // Reports readability and duplicate-choice problems in validated activity content.
 import {
   flashcardsContentSchema,
+  matchingContentSchema,
   multipleChoiceContentSchema,
   trueFalseContentSchema,
   type FlashcardsContent,
+  type MatchingContent,
   type MultipleChoiceContent,
   type TrueFalseContent,
 } from "./schemas";
@@ -17,6 +19,8 @@ const textLimits = {
   explanation: 180,
   cardFront: 120,
   cardBack: 250,
+  pairLeft: 60,
+  pairRight: 120,
 } as const;
 
 export function checkMultipleChoiceContent(content: MultipleChoiceContent): string[] {
@@ -156,6 +160,58 @@ export function validateFlashcardsContent(input: unknown):
   }
 
   const problems = checkFlashcardsContent(parsed.data);
+  return problems.length > 0
+    ? { success: false, problems }
+    : { success: true, data: parsed.data };
+}
+
+export function checkMatchingContent(content: MatchingContent): string[] {
+  const problems: string[] = [];
+
+  if (content.pairs.length < 4 || content.pairs.length > 10) {
+    problems.push("A matching game must have between 4 and 10 pairs");
+  }
+  if (content.title.length > textLimits.title) {
+    problems.push(`The title must be ${textLimits.title} characters or fewer`);
+  }
+  if (content.instructions.length > textLimits.instructions) {
+    problems.push(`Instructions must be ${textLimits.instructions} characters or fewer`);
+  }
+
+  // Repeated terms or partners would make a match ambiguous, so they are not allowed.
+  const seenLeft = new Set<string>();
+  const seenRight = new Set<string>();
+  content.pairs.forEach((pair, index) => {
+    const number = index + 1;
+    const left = pair.left.trim().toLocaleLowerCase();
+    const right = pair.right.trim().toLocaleLowerCase();
+
+    if (!left) problems.push(`Pair ${number} needs a term`);
+    if (!right) problems.push(`Pair ${number} needs a partner`);
+    if (pair.left.length > textLimits.pairLeft) {
+      problems.push(`Pair ${number} has a term that is too long (maximum ${textLimits.pairLeft} characters)`);
+    }
+    if (pair.right.length > textLimits.pairRight) {
+      problems.push(`Pair ${number} has a partner that is too long (maximum ${textLimits.pairRight} characters)`);
+    }
+    if (left && seenLeft.has(left)) problems.push(`Pair ${number} has the same term as an earlier pair`);
+    if (right && seenRight.has(right)) problems.push(`Pair ${number} has the same partner as an earlier pair`);
+    seenLeft.add(left);
+    seenRight.add(right);
+  });
+
+  return problems;
+}
+
+export function validateMatchingContent(input: unknown):
+  | { success: true; data: MatchingContent }
+  | { success: false; problems: string[] } {
+  const parsed = matchingContentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, problems: parsed.error.issues.map((issue) => issue.message) };
+  }
+
+  const problems = checkMatchingContent(parsed.data);
   return problems.length > 0
     ? { success: false, problems }
     : { success: true, data: parsed.data };

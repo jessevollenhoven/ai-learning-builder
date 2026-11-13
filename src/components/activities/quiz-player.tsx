@@ -5,8 +5,9 @@ import { useState } from "react";
 import { activityTypes } from "../../lib/activity-types";
 import type { ActivityContent } from "../../lib/schemas";
 import { FlashcardPlayer } from "./flashcards-player";
+import { MatchingPlayer } from "./matching-player";
 
-type QuestionContent = Exclude<ActivityContent, { type: "flashcards" }>;
+type QuestionContent = Exclude<ActivityContent, { type: "flashcards" | "matching" }>;
 
 function countItems(content: QuestionContent): number {
   return content.type === "multiple_choice" ? content.questions.length : content.statements.length;
@@ -14,6 +15,7 @@ function countItems(content: QuestionContent): number {
 
 export function QuizPlayer({ content }: { content: ActivityContent }) {
   if (content.type === "flashcards") return <FlashcardPlayer content={content} />;
+  if (content.type === "matching") return <MatchingPlayer content={content} />;
   return <QuestionPlayer content={content} />;
 }
 

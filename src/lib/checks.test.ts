@@ -2,9 +2,11 @@
 import { describe, expect, it } from "vitest";
 import {
   checkFlashcardsContent,
+  checkMatchingContent,
   checkMultipleChoiceContent,
   checkTrueFalseContent,
   validateFlashcardsContent,
+  validateMatchingContent,
   validateMultipleChoiceContent,
   validateTrueFalseContent,
 } from "./checks";
@@ -12,10 +14,11 @@ import {
   generateRequestSchema,
   multipleChoiceContentSchema,
   type FlashcardsContent,
+  type MatchingContent,
   type MultipleChoiceContent,
   type TrueFalseContent,
 } from "./schemas";
-import { getRefinedSampleQuiz, sampleFlashcards, sampleQuiz } from "./sample-data";
+import { getRefinedSampleQuiz, sampleFlashcards, sampleMatching, sampleQuiz } from "./sample-data";
 
 function makeContent(questionCount = 5): MultipleChoiceContent {
   return {
@@ -219,5 +222,62 @@ describe("checkFlashcardsContent", () => {
   it("reports decks outside the sensible size range", () => {
     expect(checkFlashcardsContent(makeFlashcardsContent(4))).toContain("A deck must have between 5 and 20 cards");
     expect(checkFlashcardsContent(makeFlashcardsContent(21))).toContain("A deck must have between 5 and 20 cards");
+  });
+});
+
+function makeMatchingContent(pairCount = 5): MatchingContent {
+  return {
+    type: "matching",
+    title: "Plant parts",
+    instructions: "Tap a term, then its partner.",
+    pairs: Array.from({ length: pairCount }, (_, index) => ({
+      left: `Term ${index + 1}`,
+      right: `Partner ${index + 1}`,
+    })),
+  };
+}
+
+describe("checkMatchingContent", () => {
+  it("accepts a clear set of pairs", () => {
+    expect(checkMatchingContent(makeMatchingContent())).toEqual([]);
+  });
+
+  it("keeps the sample matching game valid", () => {
+    expect(validateMatchingContent(sampleMatching).success).toBe(true);
+  });
+
+  it("reports an empty term or partner", () => {
+    const content = makeMatchingContent();
+    content.pairs[0].left = "  ";
+    content.pairs[1].right = "";
+
+    const problems = checkMatchingContent(content);
+    expect(problems).toContain("Pair 1 needs a term");
+    expect(problems).toContain("Pair 2 needs a partner");
+  });
+
+  it("reports repeated terms and repeated partners", () => {
+    const content = makeMatchingContent();
+    content.pairs[2].left = " term 1 ";
+    content.pairs[3].right = "PARTNER 2";
+
+    const problems = checkMatchingContent(content);
+    expect(problems).toContain("Pair 3 has the same term as an earlier pair");
+    expect(problems).toContain("Pair 4 has the same partner as an earlier pair");
+  });
+
+  it("reports text that is too long for a phone", () => {
+    const content = makeMatchingContent();
+    content.pairs[0].left = "L".repeat(61);
+    content.pairs[1].right = "R".repeat(121);
+
+    const problems = checkMatchingContent(content);
+    expect(problems).toContain("Pair 1 has a term that is too long (maximum 60 characters)");
+    expect(problems).toContain("Pair 2 has a partner that is too long (maximum 120 characters)");
+  });
+
+  it("reports games outside the sensible size range", () => {
+    expect(checkMatchingContent(makeMatchingContent(3))).toContain("A matching game must have between 4 and 10 pairs");
+    expect(checkMatchingContent(makeMatchingContent(11))).toContain("A matching game must have between 4 and 10 pairs");
   });
 });

@@ -1,5 +1,5 @@
 // Keeps all prototype activity and quiz content in one place.
-import type { FlashcardsContent, MultipleChoiceContent, TrueFalseContent } from "./schemas";
+import type { FlashcardsContent, MatchingContent, MultipleChoiceContent, TrueFalseContent } from "./schemas";
 
 export const sampleQuiz: MultipleChoiceContent = {
   type: "multiple_choice",
@@ -67,5 +67,19 @@ export const sampleFlashcards: FlashcardsContent = {
     { front: "Transpiration", back: "Plants release water vapor from their leaves." },
     { front: "Runoff", back: "Water that flows over land into streams, rivers and lakes." },
     { front: "Collection", back: "Water gathers in oceans, lakes, rivers and underground." },
+  ],
+};
+
+export const sampleMatching: MatchingContent = {
+  type: "matching",
+  title: "Water cycle matching",
+  instructions: "Tap a term, then tap the description that matches it.",
+  pairs: [
+    { left: "Evaporation", right: "Liquid water turns into vapor" },
+    { left: "Condensation", right: "Vapor cools into tiny droplets" },
+    { left: "Precipitation", right: "Rain, snow, sleet or hail falls" },
+    { left: "Transpiration", right: "Plants release water vapor" },
+    { left: "Runoff", right: "Water flows over land into streams" },
+    { left: "Collection", right: "Water gathers in oceans and lakes" },
   ],
 };
