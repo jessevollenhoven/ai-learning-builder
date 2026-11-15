@@ -131,7 +131,7 @@
   - Applied for the GitHub Student Developer Pack for Copilot credits: [status]
 - Learned: why each activity type needs its own checks (flashcards care about duplicate fronts, quizzes about duplicate options), and how splitting a component keeps old features from breaking while a new one is added.
 
-## Day 7 ([date]) (written up on [date, if later])
+## Day 7 ([9 Nov]) (written up on [date, if later])
 - Built:
   - Retry and fallback for the free Gemini tier (`src/lib/gemini.ts`). On a 429, 5xx or timeout it waits 1 second, then 3 seconds, retries, then tries a fallback model (`GEMINI_FALLBACK_MODEL`). It stops after about 30 seconds so the page doesn't hang. It does not retry a bad key or a bad request, because that can't succeed. `route.ts` allows up to 60 seconds.
   - Direct editing without AI (`activity-editor.tsx`): edit the title, instructions and every item of multiple choice, true/false and flashcards, mark the correct answer, add and delete items, and reorder with Move up / Move down buttons. Edits work on a copy and go through the same Zod schema and content checks as AI output, so a teacher sees plain-English problems before anything changes. Cancel discards them.
@@ -152,3 +152,50 @@
   - Separately, I found a real weakness: the share policy ("anyone can read rows where `shared = true`") also applies to signed-in users, and the dashboard and owner preview relied on RLS alone, so another teacher's shared activity could appear there. Fix: filter both by `owner_id` from the verified login claims. Re-tested: [result, only if you applied the fix].
 - Still to do: matching and ordering templates, the 10-request test set, the README (including the POPIA note), turning email confirmation back on, delete with confirmation, phone testing, and a real teacher test if possible.
 - Learned: why a read policy for strangers needs a matching owner filter in the app, why two tabs in one browser share a session, and why retries should only happen for errors that can fix themselves.
+
+## Day 8 ([10 Nov])
+- Built:
+  - **Matching** (tap a term, then tap its partner):
+    - Zod schema with 4 to 10 pairs, and content checks for empty terms or partners, repeated terms or partners (they would make a match ambiguous), and text too long for a phone
+    - 6 new tests for the checks
+    - A matching player with a shuffled partner column. The shuffle is seeded from the title, so the server and the browser agree and the page doesn't flicker. Score = pairs matched without a wrong guess.
+    - Gemini prompt and JSON schema, a fake-mode sample, and a section in the hand editor
+    - Made the "is this a type we can generate" check in `gemini.ts` one guard function, so a new type only needs entries in the lists
+  - **Delete with confirmation**: a `deleteActivity` server action that checks login and deletes only a row where `owner_id` matches the signed-in user, plus a "Yes, delete it / Keep it" confirmation. Deleting also turns off the share link, because the row is gone.
+  - `TEST-SET.md` created for the 10 realistic teacher requests: [filled in / still to fill in]
+- Decisions:
+  - Tap-then-tap matching instead of drag and drop, because it works on phones and is simpler to build and test.
+  - Repeated terms or partners are rejected rather than allowed, because the correct match would be unclear.
+- Agent got wrong / problems:
+  - Copilot credits are still used up (reset 1 December), so the code was written with Claude in chat and I pasted it in, ran `npm test`, `npm run lint` and `npm run build`, and tested it in the browser myself.
+  - [Anything that broke while pasting, e.g. a missing import, and what you did.]
+- Tested:
+  - Matching: right pair gets a tick, wrong pair shows "Not quite" and keeps the term selected, score and Play again work: [pass/fail]
+  - Matching on my phone, two columns fit and text wraps: [pass/fail]
+  - Matching with real AI from my own notes, with no repeated terms or partners: [result]
+  - Delete: the activity disappears from the dashboard, its shared link shows "This activity isn't available", and account B can't delete account A's activity: [pass/fail]
+  - Two-account test in two different browsers (normal window and incognito): [result]
+- Still to do: ordering, the test set run on the live site, README, email confirmation back on, final phone rehearsal.
+- Learned: why a seeded shuffle matters when the server and browser both render the same page, and why a server action must check ownership itself and not trust the button on the screen.
+
+## Day 9 ([11 Nov])
+- Built: **ordering**
+  - Schema: 4 to 10 items stored in the correct order. The player shuffles them, so the teacher never has to scramble anything and the AI only has to give one correct order.
+  - Content checks for empty items, repeated items, text too long for a phone, and list size, with 6 new tests
+  - An ordering player with up and down buttons (large enough to tap), a "Check order" button, a tick or cross on each item, the correct order shown after a mistake, and Play again. It reuses the seeded shuffle from the matching player and never shows the items already in the right order.
+  - Gemini prompt and JSON schema (the prompt asks for one clearly correct order and no numbering), a fake-mode sample, and a section in the hand editor that says the order shown is the correct order
+  - All five core types are now built and enabled: multiple choice, true/false, flashcards, matching and ordering.
+- Decisions:
+  - Up and down buttons instead of drag and drop, as with editing. It is much easier on a phone and easier to test.
+  - Stored the correct order in the content itself, so the checks, the editor and the AI prompt all share one idea of "correct".
+- Agent got wrong / problems:
+  - [Real problem you hit. For example: VS Code reported "This comparison appears to be unintentional" in `quiz-player.tsx` for `"ordering"`. It meant TypeScript didn't know the new type yet because [the schema edit was incomplete / the TS server was stale]. I fixed it by [what you did] and trusted `npm run build` over the editor's red squiggles.]
+  - Asked the AI for ordering from real notes: [e.g. did it give one clear correct order, or an ambiguous list? What did the checks catch?]
+- Tested:
+  - Move items, Check order, ticks and crosses, correct order shown, Play again reshuffles: [pass/fail]
+  - Edit by hand, save, share and public link in incognito: [pass/fail]
+  - All five types still work, and the dashboard shows each type's label: [pass/fail]
+  - On my phone: [result]
+  - `npm test`, `npm run lint` and `npm run build` all pass ([number] tests): [pass/fail]
+- Still to do: run the 10-request test set on the live site, README, email confirmation back on, final rehearsal on my phone, and the demo script.
+- Learned: why storing the answer in the content and shuffling in the player keeps the AI's job simple, and why a type error in the editor can be stale.

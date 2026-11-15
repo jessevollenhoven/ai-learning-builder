@@ -52,19 +52,30 @@ export const matchingContentSchema = z.object({
   pairs: z.array(matchingPairSchema).min(4).max(10),
 });
 
+export const orderingContentSchema = z.object({
+  type: z.literal("ordering"),
+  title: z.string().trim().min(1),
+  instructions: z.string().trim().min(1),
+  // The items are stored in the correct order. The player shuffles them.
+  items: z.array(z.string().trim().min(1)).min(4).max(10),
+});
+
 export const activityContentSchema = z.discriminatedUnion("type", [
   multipleChoiceContentSchema,
   trueFalseContentSchema,
   flashcardsContentSchema,
   matchingContentSchema,
+  orderingContentSchema,
+  
 ]);
 
 export type MultipleChoiceContent = z.infer<typeof multipleChoiceContentSchema>;
 export type TrueFalseContent = z.infer<typeof trueFalseContentSchema>;
 export type FlashcardsContent = z.infer<typeof flashcardsContentSchema>;
 export type MatchingContent = z.infer<typeof matchingContentSchema>;
+export type OrderingContent = z.infer<typeof orderingContentSchema>;
 export type ActivityContent = z.infer<typeof activityContentSchema>;
-export type ActivityTypeId = ActivityContent["type"] | "ordering";
+export type ActivityTypeId = ActivityContent["type"];
 export const activityTypeSchema = z.enum([
   "multiple_choice",
   "true_false",

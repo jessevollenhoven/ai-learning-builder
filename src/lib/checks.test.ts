@@ -5,10 +5,12 @@ import {
   checkMatchingContent,
   checkMultipleChoiceContent,
   checkTrueFalseContent,
+  checkOrderingContent,
   validateFlashcardsContent,
   validateMatchingContent,
   validateMultipleChoiceContent,
   validateTrueFalseContent,
+  validateOrderingContent,
 } from "./checks";
 import {
   generateRequestSchema,
@@ -17,8 +19,9 @@ import {
   type MatchingContent,
   type MultipleChoiceContent,
   type TrueFalseContent,
+  type OrderingContent,
 } from "./schemas";
-import { getRefinedSampleQuiz, sampleFlashcards, sampleMatching, sampleQuiz } from "./sample-data";
+import { getRefinedSampleQuiz, sampleFlashcards, sampleMatching, sampleQuiz, sampleOrdering } from "./sample-data";
 
 function makeContent(questionCount = 5): MultipleChoiceContent {
   return {
@@ -279,5 +282,50 @@ describe("checkMatchingContent", () => {
   it("reports games outside the sensible size range", () => {
     expect(checkMatchingContent(makeMatchingContent(3))).toContain("A matching game must have between 4 and 10 pairs");
     expect(checkMatchingContent(makeMatchingContent(11))).toContain("A matching game must have between 4 and 10 pairs");
+  });
+});
+
+function makeOrderingContent(itemCount = 5): OrderingContent {
+  return {
+    type: "ordering",
+    title: "Steps",
+    instructions: "Put the steps in order.",
+    items: Array.from({ length: itemCount }, (_, index) => `Step ${index + 1}`),
+  };
+}
+
+describe("checkOrderingContent", () => {
+  it("accepts a clear list", () => {
+    expect(checkOrderingContent(makeOrderingContent())).toEqual([]);
+  });
+
+  it("keeps the sample ordering activity valid", () => {
+    expect(validateOrderingContent(sampleOrdering).success).toBe(true);
+  });
+
+  it("reports an empty item", () => {
+    const content = makeOrderingContent();
+    content.items[1] = "   ";
+
+    expect(checkOrderingContent(content)).toContain("Item 2 cannot be empty");
+  });
+
+  it("reports repeated items ignoring case and spaces", () => {
+    const content = makeOrderingContent();
+    content.items[3] = " step 1 ";
+
+    expect(checkOrderingContent(content)).toContain("Item 4 is the same as an earlier item");
+  });
+
+  it("reports an item that is too long for a phone", () => {
+    const content = makeOrderingContent();
+    content.items[0] = "I".repeat(101);
+
+    expect(checkOrderingContent(content)).toContain("Item 1 is too long (maximum 100 characters)");
+  });
+
+  it("reports lists outside the sensible size range", () => {
+    expect(checkOrderingContent(makeOrderingContent(3))).toContain("An ordering activity must have between 4 and 10 items");
+    expect(checkOrderingContent(makeOrderingContent(11))).toContain("An ordering activity must have between 4 and 10 items");
   });
 });

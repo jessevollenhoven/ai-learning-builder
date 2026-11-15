@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { MatchingContent } from "../../lib/schemas";
 
 // The same text always gives the same number, so the server and the browser shuffle the same way.
-function hashText(text: string): number {
+export function hashText(text: string): number {
   let hash = 2166136261;
   for (let i = 0; i < text.length; i++) {
     hash ^= text.charCodeAt(i);
@@ -26,7 +26,7 @@ function makeRandom(seed: number) {
 }
 
 // Returns the numbers 0 to count-1 in a shuffled order that is never the original order.
-function shuffledOrder(count: number, seed: number): number[] {
+export function shuffledOrder(count: number, seed: number): number[] {
   const order = Array.from({ length: count }, (_, index) => index);
   const random = makeRandom(seed);
   for (let i = count - 1; i > 0; i--) {

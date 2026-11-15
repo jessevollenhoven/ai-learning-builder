@@ -193,13 +193,31 @@ const matchingResponseSchema = {
   required: ["type", "title", "instructions", "pairs"],
 } as const;
 
-type GeneratableType = "multiple_choice" | "true_false" | "flashcards" | "matching";
+const orderingResponseSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    type: { type: "string", enum: ["ordering"] },
+    title: { type: "string" },
+    instructions: { type: "string" },
+    items: {
+      type: "array",
+      minItems: 4,
+      maxItems: 10,
+      items: { type: "string" },
+    },
+  },
+  required: ["type", "title", "instructions", "items"],
+} as const;
+
+type GeneratableType = "multiple_choice" | "true_false" | "flashcards" | "matching" | "ordering";
 
 const responseSchemas = {
   multiple_choice: multipleChoiceResponseSchema,
   true_false: trueFalseResponseSchema,
   flashcards: flashcardsResponseSchema,
   matching: matchingResponseSchema,
+  ordering: orderingResponseSchema,
 } as const;
 
 const commonInstruction =
@@ -219,6 +237,9 @@ const systemInstructions: Record<GeneratableType, string> = {
   matching:
     commonInstruction +
     "Write 4 to 10 matching pairs. Each pair has a short term (left) and its partner (right), such as a definition. Every term and every partner must be different, and each term must match only one partner.",
+      ordering:
+    commonInstruction +
+    "Write 4 to 10 short items that must be put in the correct order, such as the steps of a process or events in time. Return them in the correct order, without numbering, and make every item different. There must be one clearly correct order.",
 };
 
 const typeLabels: Record<GeneratableType, string> = {
@@ -226,6 +247,7 @@ const typeLabels: Record<GeneratableType, string> = {
   true_false: "true/false quiz",
   flashcards: "deck of flashcards",
   matching: "matching game",
+  ordering: "ordering activity",
 };
 
 function isGeneratableType(type: string): type is GeneratableType {
