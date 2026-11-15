@@ -6,8 +6,9 @@ import { activityTypes } from "../../lib/activity-types";
 import type { ActivityContent } from "../../lib/schemas";
 import { FlashcardPlayer } from "./flashcards-player";
 import { MatchingPlayer } from "./matching-player";
+import { OrderingPlayer } from "./ordering-player";
 
-type QuestionContent = Exclude<ActivityContent, { type: "flashcards" | "matching" }>;
+type QuestionContent = Exclude<ActivityContent, { type: "flashcards" | "matching" | "ordering" }>;
 
 function countItems(content: QuestionContent): number {
   return content.type === "multiple_choice" ? content.questions.length : content.statements.length;
@@ -16,6 +17,7 @@ function countItems(content: QuestionContent): number {
 export function QuizPlayer({ content }: { content: ActivityContent }) {
   if (content.type === "flashcards") return <FlashcardPlayer content={content} />;
   if (content.type === "matching") return <MatchingPlayer content={content} />;
+  if (content.type === "ordering") return <OrderingPlayer content={content} />;
   return <QuestionPlayer content={content} />;
 }
 

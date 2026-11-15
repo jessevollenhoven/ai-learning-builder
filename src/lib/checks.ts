@@ -3,11 +3,13 @@ import {
   flashcardsContentSchema,
   matchingContentSchema,
   multipleChoiceContentSchema,
+  orderingContentSchema,
   trueFalseContentSchema,
   type FlashcardsContent,
   type MatchingContent,
   type MultipleChoiceContent,
   type TrueFalseContent,
+  type OrderingContent,
 } from "./schemas";
 
 const textLimits = {
@@ -21,6 +23,7 @@ const textLimits = {
   cardBack: 250,
   pairLeft: 60,
   pairRight: 120,
+  item: 100,
 } as const;
 
 export function checkMultipleChoiceContent(content: MultipleChoiceContent): string[] {
@@ -212,6 +215,50 @@ export function validateMatchingContent(input: unknown):
   }
 
   const problems = checkMatchingContent(parsed.data);
+  return problems.length > 0
+    ? { success: false, problems }
+    : { success: true, data: parsed.data };
+}
+
+export function checkOrderingContent(content: OrderingContent): string[] {
+  const problems: string[] = [];
+
+  if (content.items.length < 4 || content.items.length > 10) {
+    problems.push("An ordering activity must have between 4 and 10 items");
+  }
+  if (content.title.length > textLimits.title) {
+    problems.push(`The title must be ${textLimits.title} characters or fewer`);
+  }
+  if (content.instructions.length > textLimits.instructions) {
+    problems.push(`Instructions must be ${textLimits.instructions} characters or fewer`);
+  }
+
+  // Two identical items would make the correct order unclear.
+  const seen = new Set<string>();
+  content.items.forEach((item, index) => {
+    const number = index + 1;
+    const text = item.trim().toLocaleLowerCase();
+
+    if (!text) problems.push(`Item ${number} cannot be empty`);
+    if (item.length > textLimits.item) {
+      problems.push(`Item ${number} is too long (maximum ${textLimits.item} characters)`);
+    }
+    if (text && seen.has(text)) problems.push(`Item ${number} is the same as an earlier item`);
+    seen.add(text);
+  });
+
+  return problems;
+}
+
+export function validateOrderingContent(input: unknown):
+  | { success: true; data: OrderingContent }
+  | { success: false; problems: string[] } {
+  const parsed = orderingContentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, problems: parsed.error.issues.map((issue) => issue.message) };
+  }
+
+  const problems = checkOrderingContent(parsed.data);
   return problems.length > 0
     ? { success: false, problems }
     : { success: true, data: parsed.data };

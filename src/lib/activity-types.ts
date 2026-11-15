@@ -1,13 +1,14 @@
 // Registers implemented activity schemas, checks, prompts, samples, and players.
 import type { ComponentType } from "react";
-import { checkFlashcardsContent, checkMatchingContent, checkMultipleChoiceContent, checkTrueFalseContent } from "./checks";
-import { sampleFlashcards, sampleMatching, sampleQuiz, sampleTrueFalseQuiz } from "./sample-data";
+import { checkFlashcardsContent, checkMatchingContent, checkMultipleChoiceContent, checkTrueFalseContent, checkOrderingContent } from "./checks";
+import { sampleFlashcards, sampleMatching, sampleQuiz, sampleTrueFalseQuiz, sampleOrdering } from "./sample-data";
 import {
   activityContentSchema,
   flashcardsContentSchema,
   multipleChoiceContentSchema,
   trueFalseContentSchema,
   matchingContentSchema,
+  orderingContentSchema,
   type ActivityContent,
   type ActivityTypeId,
 } from "./schemas";
@@ -23,6 +24,7 @@ type ActivityTypeDefinition = {
     | typeof trueFalseContentSchema
     | typeof flashcardsContentSchema
     | typeof matchingContentSchema
+    | typeof orderingContentSchema
     | null;
   checks: ((content: ActivityContent) => string[]) | null;
   systemPrompt: string | null;
@@ -83,6 +85,12 @@ function checkMatching(content: ActivityContent): string[] {
     : ["The content type does not match the matching activity"];
 }
 
+function checkOrdering(content: ActivityContent): string[] {
+  return content.type === "ordering"
+    ? checkOrderingContent(content)
+    : ["The content type does not match the ordering activity"];
+}
+
 export const activityTypes: Record<ActivityTypeId, ActivityTypeDefinition> = {
   multiple_choice: {
     label: "Multiple choice",
@@ -126,7 +134,17 @@ export const activityTypes: Record<ActivityTypeId, ActivityTypeDefinition> = {
     player: null,
     getQuestion: null,
   },
-  ordering: { label: "Ordering", enabled: false, schema: null, checks: null, systemPrompt: null, sample: null, player: null, getQuestion: null },
+    // Ordering uses its own player (ordering-player.tsx), like flashcards and matching.
+  ordering: {
+    label: "Ordering",
+    enabled: true,
+    schema: orderingContentSchema,
+    checks: checkOrdering,
+    systemPrompt: "Create a list of items to put in the correct order, such as steps of a process or events in time.",
+    sample: sampleOrdering,
+    player: null,
+    getQuestion: null,
+  },
 };
 
 export const activityTypeOptions = (Object.keys(activityTypes) as ActivityTypeId[]).map((type) => ({

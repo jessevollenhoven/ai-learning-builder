@@ -1,5 +1,5 @@
 // Keeps all prototype activity and quiz content in one place.
-import type { FlashcardsContent, MatchingContent, MultipleChoiceContent, TrueFalseContent } from "./schemas";
+import type { FlashcardsContent, MatchingContent, MultipleChoiceContent, TrueFalseContent, OrderingContent } from "./schemas";
 
 export const sampleQuiz: MultipleChoiceContent = {
   type: "multiple_choice",
@@ -81,5 +81,18 @@ export const sampleMatching: MatchingContent = {
     { left: "Transpiration", right: "Plants release water vapor" },
     { left: "Runoff", right: "Water flows over land into streams" },
     { left: "Collection", right: "Water gathers in oceans and lakes" },
+  ],
+};
+
+export const sampleOrdering: OrderingContent = {
+  type: "ordering",
+  title: "Order the water cycle",
+  instructions: "Put the steps of the water cycle in the right order, then tap Check order.",
+  items: [
+    "The Sun warms water in oceans and lakes",
+    "Water evaporates into vapor",
+    "Vapor rises and cools into clouds",
+    "Rain or snow falls from the clouds",
+    "Water collects in rivers and oceans",
   ],
 };

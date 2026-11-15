@@ -262,6 +262,35 @@ export function ActivityEditor({ content, onApply, onCancel }: ActivityEditorPro
         </div>
       )}
 
+            {draft.type === "ordering" && (
+        <div className="mt-6 grid gap-5">
+          <p className="text-sm text-[#657067]">The order shown here is the correct order. Students will see the items shuffled.</p>
+          {draft.items.map((item, index) => (
+            <fieldset className="border border-[#d8ded7] p-4" key={index}>
+              <legend className="px-1 text-sm font-semibold">Item {index + 1}</legend>
+              <TextField label="Text" onChange={(value) => update((d) => { if (d.type === "ordering") d.items[index] = value; })} value={item} />
+              <ItemControls
+                index={index}
+                minItems={4}
+                onDelete={() => update((d) => { if (d.type === "ordering") d.items.splice(index, 1); })}
+                onMove={(to) => update((d) => { if (d.type === "ordering") moveItem(d.items, index, to); })}
+                total={draft.items.length}
+              />
+            </fieldset>
+          ))}
+          <button
+            className={smallButton}
+            disabled={draft.items.length >= 10}
+            onClick={() => update((d) => {
+              if (d.type === "ordering") d.items.push(`New item ${d.items.length + 1}`);
+            })}
+            type="button"
+          >
+            Add an item
+          </button>
+        </div>
+      )}
+
       {problems.length > 0 && (
         <div className="mt-6 rounded-md bg-[#fbeeec] p-4 text-sm text-[#a3332d]" role="alert">
           <p className="font-semibold">Please fix these before applying:</p>
